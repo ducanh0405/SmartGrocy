@@ -1,0 +1,33 @@
+# Core Data Processing
+pandas>=1.5.0
+numpy>=1.21.0
+pyarrow>=10.0.0
+polars>=0.20.0
+
+# Machine Learning Models
+lightgbm>=3.3.0
+xgboost>=1.7.0
+
+# Hyperparameter Tuning
+optuna>=3.0.0
+
+# Model Evaluation & Utilities
+scikit-learn>=1.2.0
+matplotlib>=3.5.0
+seaborn>=0.11.0
+
+# Jupyter Environment
+jupyterlab>=3.6.0
+notebook>=6.5.0
+
+# Additional Utilities
+tqdm>=4.64.0
+joblib>=1.2.0
+python-dateutil>=2.8.0
+
+# Dashboard & Visualization
+streamlit>=1.28.0
+
+# Optional: For API and deployment (if needed in future)
+# fastapi>=0.100.0
+# uvicorn>=0.20.0
