@@ -14,7 +14,7 @@ warnings.filterwarnings('ignore')
 # -----------------------------------------------------------------
 # Đảm bảo tên file này khớp với file output của pipeline
 # DATA_FILE = 'olist_master_table_CLEAN_FINAL_v1.parquet'
-DATA_FILE = 'olist_master_table_completed.parquet' # MỚI: Đổi tên file cho khớp với log của bạn
+DATA_FILE = 'olist_master_table_final.csv' # MỚI: Đổi tên file cho khớp với log của bạn
 
 print(f"Đang tải dữ liệu từ: {DATA_FILE}...")
 start_time = time.time()
@@ -194,3 +194,6 @@ feature_importance_df = pd.DataFrame({
 # In top 10
 print(feature_importance_df.head(10).to_string(index=False))
 print("="*50)
+print("-"*50)
+print("Báo cáo cho Nghiệp vụ (Business): Trả lời câu hỏi \"Vì sao khách hàng không hài lòng?\"")
+print("Cải thiện Mô hình (Data Science): Làm cho mô hình dự đoán chính xác hơn ")

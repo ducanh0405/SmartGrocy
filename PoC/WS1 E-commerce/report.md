@@ -85,6 +85,12 @@ Sau khi có pipeline V1 cơ bản, chúng tôi đã thực hiện 3 cấp độ 
 
 Workstream 1 đã chứng minh đội ngũ có năng lực chuyên sâu về:
 
+output của notebook 1 ( raw merged và mastertable clean)
+
+output của notebook 2 ([olist_master_table_completed.csv](Pipeline_code/olist_master_table_completed.csv),[olist_master_table_completed.parquet](Pipeline_code/olist_master_table_completed.parquet))
+
+output của pipeline hoàn chỉnh là [olist_master_table_final.csv](Pipeline_code/olist_master_table_final.csv)
+
 * ✅ **Kỹ thuật Dữ liệu (Data Engineering):** Xử lý pipeline dữ liệu quan hệ phức tạp với 9 bảng CSV.
 * ✅ **Xử lý Dữ liệu Lớn (Big Data):** Xử lý và aggregate các bảng lớn (geolocation 1M+ records).
 * ✅ **Tạo Đặc trưng (Feature Engineering):** Tạo ra 23+ đặc trưng nghiệp vụ có giá trị cao (Haversine distance, time-series features).
