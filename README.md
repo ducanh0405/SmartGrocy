@@ -146,26 +146,70 @@ Mô hình GBDT chỉ thực sự mạnh mẽ khi được cung cấp các đặc
 ---
 
 ## 5. 📁 Cấu trúc Thư mục (Repository Structure)
-E-GroceryForecaster/
-├── data/
-│   ├── 01_raw/                # Dữ liệu thô (ví dụ: Olist .csv files)
-│   ├── 02_processed/          # Dữ liệu đã làm sạch (ví dụ: master_table.parquet)
-│   └── 03_output/             # Kết quả dự báo và mô hình đã lưu
+📁 E-Grocery_Forecaster/
 │
-├── notebooks/
-│   ├── 01_EDA_and_Feature_Engineering.ipynb   # Khám phá dữ liệu & tạo đặc trưng
-│   ├── 02_Model_Training_XGBoost.ipynb        # Huấn luyện mô hình chủ lực (XGBoost)
-│   └── 03_Inventory_Logic_Simulation.ipynb    # Mô phỏng logic tồn kho
+├── 📄 .gitignore                 # File quan trọng: Bỏ qua data, models, venv
+├── 📄 README.md                  # Hướng dẫn cài đặt, chạy pipeline và mô tả dự án
+├── 📄 requirements.txt           # Danh sách thư viện (pandas, polars, lgbm...)
 │
-├── src/
-│   ├── pipelines/             # Mã pipeline xử lý dữ liệu tự động
-│   ├── features.py            # Hàm tạo đặc trưng
-│   ├── model.py               # Mã huấn luyện & dự báo
-│   └── config.py              # Tệp cấu hình tham số dự án
+├── 📁 data/
+│   │
+│   ├── 📁 1_poc_data/            # Dữ liệu "kinh điển" cho 4 Workstream
+│   │   ├── ws1_olist/
+│   │   ├── ws2_m5/
+│   │   ├── ws3_retailrocket/
+│   │   └── ws4_dunnhumby/
+│   │
+│   ├── 📁 2_raw/                 # Nơi chứa DỮ LIỆU THẬT (của cuộc thi)
+│   │   └── .gitkeep             # Placeholder để giữ thư mục này trên Git
+│   │
+│   └── 📁 3_processed/           # Đầu ra của pipeline: Bảng Master Table
+│       └── master_feature_table.parquet
 │
-├── requirements.txt           # Danh sách các thư viện Python cần cài
-└── README.md                  # Mô tả tổng quan dự án
-
+├── 📁 notebooks/                 # Sân chơi & Bản nháp (Nơi thực hiện PoC)
+│   │
+│   ├── 📁 archive/
+│   │   ├── 01_ws1_olist_poc.ipynb           (Notebook PoC 1 của bạn)
+│   │   ├── 02_ws2_m5_poc.ipynb              (Notebook PoC 2 của bạn)
+│   │   ├── 03_ws3_retailrocket_poc.ipynb    (Notebook PoC 3 của bạn)
+│   │   ├── 04_ws4_dunnhumby_poc.ipynb       (Notebook PoC 4 của bạn)
+│   │
+│   ├── 📄 05_competition_eda.ipynb    # (Quan trọng) EDA dữ liệu thật (Giảm thiểu Rủi ro 3)
+│   └── 📄 06_baseline_model.ipynb     # (Quan trọng) Chạy baseline (Giảm thiểu Rủi ro 4)
+│
+├── 📁 src/                     # Code "sạch" (Production) của Giai đoạn 2
+│   │
+│   ├── 📁 features/            # 💡 THƯ VIỆN CODE (Giảm thiểu Rủi ro 1)
+│   │   │   # Đây là nơi chứa các hàm "sạch" rút ra từ 4 PoC
+│   │   ├── 📄 ws1_ecommerce_features.py    (Hàm tính review_score, freight_ratio...)
+│   │   ├── 📄 ws2_timeseries_features.py   (Hàm tạo lag/rolling, event flags...)
+│   │   ├── 📄 ws3_behavior_features.py     (Hàm tính add_to_cart_rate...)
+│   │   └── 📄 ws4_price_features.py        (Hàm tính elasticity...)
+│   │
+│   ├── 📁 pipelines/           # 💡 KIẾN TRÚC SƯ PIPELINE (Giảm thiểu Rủi ro 1)
+│   │   │   # Các script này "gọi" các hàm từ src/features/
+│   │   ├── 📄 01_load_data.py            (Tải dữ liệu "raw" của cuộc thi)
+│   │   ├── 📄 02_feature_enrichment.py   (Tích hợp 4 Workstream, Giảm thiểu Rủi ro 2)
+│   │   ├── 📄 03_model_training.py       (Huấn luyện mô hình cuối cùng)
+│   │   └── 📄 04_run_pipeline.py         (Script chính để chạy 1, 2, 3)
+│   │
+│   └── 📁 utils/
+│       └── 📄 validation.py          (Chứa các hàm kiểm tra chất lượng dữ liệu)
+│
+├── 📁 models/                  # Nơi lưu các mô hình đã huấn luyện
+│   ├── 📄 final_forecaster.joblib
+│   └── 📄 model_features.json      (Lưu danh sách feature mô hình đã dùng)
+│
+├── 📁 planning/                # Nơi chứa các PoC/Demo của Workstream 1
+│   ├── 📄 schema.sql
+│   └── 📄 schemadiagram_olist.jpg
+│
+└── 📁 reports/
+    ├── 📁 metrics/             # Nơi lưu kết quả benchmark
+    │   ├── 📄 baseline_metrics.json
+    │   └── 📄 final_model_metrics.json
+    │
+    └── 📄 final_presentation.md  (File .md hoặc .pptx cho Vòng Chung kết)
 ## 6. 📈 Đo lường Thành công (Measuring Success)
 
 Thành công của dự án được đo lường trên cả hai mặt: Kỹ thuật và Kinh doanh.

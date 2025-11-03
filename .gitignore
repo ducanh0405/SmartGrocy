@@ -1,0 +1,87 @@
+# ===================================================================
+# 1. MÔI TRƯỜNG ẢO VÀ PHỤ THUỘC (Virtual Environments)
+# ===================================================================
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# ===================================================================
+# 2. DỮ LIỆU (DATA) - QUAN TRỌNG NHẤT
+# ===================================================================
+# Bỏ qua TẤT CẢ các thư mục con trong 'data'
+data/
+# Bỏ qua các file dữ liệu lớn nếu chúng vô tình nằm ở thư mục gốc
+*.csv
+*.csv.gz
+*.parquet
+*.sqlite
+*.db
+*.log
+*.jsonl
+
+# ===================================================================
+# 3. MÔ HÌNH (MODELS)
+# ===================================================================
+# Bỏ qua các file mô hình nhị phân (binary)
+*.joblib
+*.pkl
+*.pickle
+*.model
+*.h5
+*.pth
+
+# Bỏ qua tất cả file JSON trong 'models/'...
+models/*.json
+# ...NHƯNG "tha" (không bỏ qua) file cấu hình features chính
+!models/model_features.json
+
+# ===================================================================
+# 4. BÁO CÁO (REPORTS)
+# ===================================================================
+# Bỏ qua tất cả file JSON trong 'reports/metrics/'...
+reports/metrics/*.json
+# ...NHƯNG "tha" (không bỏ qua) các file metrics quan trọng
+!reports/metrics/baseline_metrics.json
+!reports/metrics/final_model_metrics.json
+
+# ===================================================================
+# 5. NOTEBOOKS VÀ CACHE CỦA PYTHON
+# ===================================================================
+.ipynb_checkpoints/
+__pycache__/
+*.pyc
+*.pyo
+
+# ===================================================================
+# 6. CÁC FILE HỆ THỐNG (System & OS)
+# ===================================================================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===================================================================
+# 7. CÁC FILE CỦA IDE (PyCharm, VS Code, Cursor)
+# ===================================================================
+# PyCharm / IntelliJ
+.idea/
+
+# VS Code (Cursor cũng dùng thư mục này)
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+
+# Cursor (Thêm mục riêng cho cache của nó)
+.cursor-cache/
+
+# ===================================================================
+# 8. BẢO MẬT VÀ CẤU HÌNH (Credentials & Config)
+# ===================================================================
+*.env
+.env.*
+config.ini
+credentials.json
+secrets.toml
