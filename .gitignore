@@ -12,7 +12,17 @@ build/
 # 2. DỮ LIỆU (DATA) - QUAN TRỌNG NHẤT
 # ===================================================================
 # Bỏ qua TẤT CẢ các thư mục con trong 'data'
-data/
+data/raw/
+data/2_raw/
+data/3_processed/
+# Allow poc_data samples (small files only)
+!data/poc_data/
+data/poc_data/*.csv
+data/poc_data/*.parquet
+# Allow processed folder structure but ignore large files
+!data/processed/
+data/processed/*.parquet
+data/processed/*.csv
 # Bỏ qua các file dữ liệu lớn nếu chúng vô tình nằm ở thư mục gốc
 *.csv
 *.csv.gz
@@ -21,6 +31,8 @@ data/
 *.db
 *.log
 *.jsonl
+# Exception: keep .gitkeep files
+!**/.gitkeep
 
 # ===================================================================
 # 3. MÔ HÌNH (MODELS)

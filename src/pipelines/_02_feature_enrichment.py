@@ -16,10 +16,19 @@ try:
     from src.pipelines._01_load_data import load_competition_data
 
     # 2. Import "THƯ VIỆN CODE" (các hàm đã refactor từ 4 PoC)
+    # Import logic AGGREGATION & GRID (WS0 - NEW!)
+    from src.features import ws0_aggregation as ws0
     # Import logic JOIN của Dunnhumby (WS1)
     from src.features import ws1_relational_features as ws1
-    # Import logic Time-Series (WS2)
-    from src.features import ws2_timeseries_features as ws2
+    
+    # Import logic Time-Series (WS2) - OPTIMIZED VERSION
+    try:
+        from src.features import ws2_timeseries_features_optimized as ws2
+        logging.info("[PIPELINE] Using OPTIMIZED WS2 features (10x speedup)")
+    except ImportError:
+        from src.features import ws2_timeseries_features as ws2
+        logging.warning("[PIPELINE] Using original WS2 (slower). Upgrade recommended.")
+    
     # Import logic Behavior (WS3)
     from src.features import ws3_behavior_features as ws3
     # Import logic Price/Promo (WS4)
@@ -57,8 +66,16 @@ def main():
         logging.critical("Error: 'transaction_data.csv' (main sales file) not found in data/2_raw/.")
         sys.exit(1)
 
-    master_df = dataframes['transaction_data'].copy()
-    logging.info(f"Initialized Master Table from 'transaction_data'. Shape: {master_df.shape}")
+    # -----------------------------------------------------------------
+    # Workstream 0: AGGREGATION & MASTER GRID (NEW - CRITICAL!)
+    # -----------------------------------------------------------------
+    logging.info("--- (0/6) Workstream 0: Aggregation & Master Grid Creation ---")
+    try:
+        master_df = ws0.prepare_master_dataframe(dataframes['transaction_data'])
+        logging.info(f"-> Shape after WS0 (aggregation): {master_df.shape}")
+    except Exception as e:
+        logging.error(f"ERROR during WS0 (Aggregation): {e}", exc_info=True)
+        sys.exit(1)
 
     # 4. Tích hợp (Enrichment) theo Mô-đun (Tính năng "Bật/Tắt")
     # -----------------------------------------------------------------

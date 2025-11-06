@@ -6,20 +6,40 @@ import os
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.append(str(PROJECT_ROOT))
-RAW_DATA_DIR = PROJECT_ROOT / 'data' / '2_raw'
+
+# Auto-detect data directory (try multiple locations)
+RAW_DATA_DIR = None
+for possible_dir in [
+    PROJECT_ROOT / 'data' / 'poc_data',  # POC data (1% sample) - PRIORITY
+    PROJECT_ROOT / 'data' / 'raw' / 'Dunnhumby',  # Full data location
+    PROJECT_ROOT / 'data' / '2_raw',  # Legacy location
+]:
+    if possible_dir.exists() and list(possible_dir.glob('*.csv')):
+        RAW_DATA_DIR = possible_dir
+        break
+
+if RAW_DATA_DIR is None:
+    RAW_DATA_DIR = PROJECT_ROOT / 'data' / 'poc_data'  # Default fallback
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
-def load_competition_data(data_dir=RAW_DATA_DIR):
+def load_competition_data(data_dir=None):
     """
-    Tai TAT CA du lieu tho (Dunnhumby, M5, v.v.) tu data/2_raw/.
-    Tu dong doc cac file .csv hoac .parquet.
+    Load all raw data (Dunnhumby, M5, etc.) from data directory.
+    Auto-detects data location (poc_data, raw/Dunnhumby, or 2_raw).
+    Reads .csv or .parquet files.
     """
+    if data_dir is None:
+        data_dir = RAW_DATA_DIR
+    
     logging.info(f"========== [STEP 1: LOAD DATA] ==========")
     logging.info(f"Starting to load raw data from: {data_dir}")
     dataframes = {}
+    
     if not data_dir.exists():
         logging.error(f"ERROR: Raw data directory not found: {data_dir}")
+        logging.error(f"Please run: python scripts/create_sample_data.py")
         sys.exit(1)
 
     files = [f for f in data_dir.iterdir() if f.is_file() and (f.suffix in ['.csv', '.parquet'])]

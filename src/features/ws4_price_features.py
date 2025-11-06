@@ -11,6 +11,12 @@ def _clean_causal_data(df_causal):
     """
     logging.info("[WS4] Đang làm sạch dữ liệu 'causal' (khuyến mãi)...")
     
+    # Handle both uppercase and lowercase column names
+    df_causal = df_causal.copy()
+    
+    # Standardize column names to uppercase
+    df_causal.columns = df_causal.columns.str.upper()
+    
     # Chuyển đổi kiểu dữ liệu (ví dụ)
     # (Bạn sẽ thay thế bằng logic clean từ 'clean_w4.py')
     df_causal['DISPLAY'] = df_causal['DISPLAY'].astype(str)
