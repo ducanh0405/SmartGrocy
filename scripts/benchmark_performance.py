@@ -302,7 +302,6 @@ def main():
     benchmark = PerformanceBenchmark(use_sample=use_sample)
     benchmark.run_benchmark()
 
-
 if __name__ == "__main__":
     main()
 

@@ -125,7 +125,6 @@ def run_model_training(tune: bool = False, n_trials: int = 30):
         traceback.print_exc()
         return None
 
-
 def compare_results():
     """Compare original vs optimized results."""
     import json
