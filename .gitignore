@@ -59,6 +59,11 @@ reports/metrics/*.json
 !reports/metrics/baseline_metrics.json
 !reports/metrics/final_model_metrics.json
 
+# Bỏ qua tất cả files trong dashboard (generated files)
+reports/dashboard/
+# Exception: keep .gitkeep file if it exists
+!reports/dashboard/.gitkeep
+
 # ===================================================================
 # 5. NOTEBOOKS VÀ CACHE CỦA PYTHON
 # ===================================================================
