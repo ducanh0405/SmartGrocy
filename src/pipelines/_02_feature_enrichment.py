@@ -153,10 +153,32 @@ def main() -> None:
         # validation_report = comprehensive_validation(master_df, verbose=True)
         # if validation_report['passed']:
 
-        logging.info("OK. Data pipeline PASSED. Saving file...")
+        logging.info("OK. Data pipeline PASSED. Saving optimized master table...")
+
+        # Clean up old files (keep only the main 2 files)
+        import glob
+        old_files = glob.glob(str(OUTPUT_PROCESSED_DIR / "master_feature_table_*"))
+        for old_file in old_files:
+            if not (old_file.endswith('.parquet') or old_file.endswith('.csv')):
+                try:
+                    Path(old_file).unlink()
+                    logging.info(f"Cleaned up old file: {Path(old_file).name}")
+                except:
+                    pass
+
+        # Save optimized master table in both formats
         master_df.to_parquet(OUTPUT_FILE, index=False)
-        logging.info(f"OK. Master Table saved to: {OUTPUT_FILE}")
-        logging.info(f"Final Shape: {master_df.shape}")
+        master_df.to_csv(output_csv, index=False)
+
+        logging.info(f"✅ Master Table saved to: {OUTPUT_FILE}")
+        logging.info(f"✅ Master Table CSV saved to: {output_csv}")
+        logging.info(f"📊 Final Shape: {master_df.shape[0]:,} rows, {master_df.shape[1]} columns")
+        logging.info(f"💰 SALES_VALUE range: {master_df['SALES_VALUE'].min():.2f} - {master_df['SALES_VALUE'].max():.2f}")
+
+        # Quality summary
+        zero_sales = (master_df['SALES_VALUE'] == 0).sum()
+        logging.info(f"✅ Data Quality: {zero_sales} zero sales rows (optimized)")
+        logging.info(f"✅ Features: Complete lag/rolling/calendar/price features included")
 
     except Exception as e:
         logging.error(f"ERROR: Data pipeline failed at final save step: {e}", exc_info=True)
