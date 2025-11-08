@@ -41,7 +41,7 @@ python src/pipelines/_04_run_pipeline.py
 | **Model Type** | Single regression | 3 quantile models (Q05/Q50/Q95) |
 | **Evaluation Metric** | RMSE (wrong for quantile) | Pinball loss (correct) |
 | **Tests** | None | 6 smoke tests + validation script |
-| **Dev Tooling** | None | ruff, black, isort, mypy, pre-commit |
+| **Dev Tooling** | None | ruff, black, isort, mypy |
 
 **Bottom Line:** The refactored pipeline is now **leak-safe, probabilistic, and production-ready**.
 
@@ -66,8 +66,8 @@ pip install -r requirements.txt
 # Dev tools (pytest, ruff, black, mypy)
 pip install -r requirements-dev.txt
 
-# Optional: Set up pre-commit hooks for auto-formatting
-pre-commit install
+# Optional: Set up development tools
+# Note: Pre-commit hooks removed for demo purposes
 ```
 
 ### Step 2: Create Sample Data (30 seconds)
@@ -118,7 +118,6 @@ DATASTORM PIPELINE VALIDATION
 
 [4/5] Testing configuration files...
   ✓ pyproject.toml
-  ✓ .pre-commit-config.yaml
   ✓ requirements-dev.txt
 
 [5/5] Testing WS0 aggregation (functional test)...
@@ -332,13 +331,10 @@ pytest tests/test_smoke.py::test_ws2_timeseries_features -v
 pytest tests/test_smoke.py::test_time_based_split -v
 ```
 
-### Run Linting (Pre-Commit)
+### Run Linting
 
 ```bash
-# Auto-format code
-pre-commit run --all-files
-
-# Or manually:
+# Manual code formatting and linting
 ruff check src/ tests/ --fix
 black src/ tests/
 isort src/ tests/

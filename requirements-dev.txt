@@ -16,8 +16,7 @@ pytest==8.3.4
 pytest-cov==6.0.0
 pytest-xdist==3.6.1
 
-# Pre-commit Hooks
-pre-commit==4.1.0
+# Pre-commit Hooks - REMOVED for demo purposes
 
 # Documentation
 mkdocs==1.6.1
