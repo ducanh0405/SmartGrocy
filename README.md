@@ -367,6 +367,7 @@ print(f"Coverage: {metrics['prediction_interval_coverage']*100:.1f}%")
 ├── 📁 docs/                         # Documentation
 │   ├── 📄 CHANGELOG.md              # Lịch sử thay đổi và release notes
 │   ├── 📄 CONTRIBUTING.md           # Hướng dẫn đóng góp
+│   ├── 📄 OPERATIONS.md             # Deployment và vận hành production
 │   ├── 📄 QUICKSTART.md             # Hướng dẫn setup nhanh
 │   └── 📄 TEST_README.md            # Tài liệu testing
 │
@@ -541,6 +542,7 @@ Dự án đã xử lý thành công dataset Dunnhumby với:
 Tất cả tài liệu chi tiết nằm trong thư mục `docs/`:
 
 - **[QUICKSTART.md](docs/QUICKSTART.md)** - Hướng dẫn setup nhanh và các tính năng mới
+- **[OPERATIONS.md](docs/OPERATIONS.md)** - Hướng dẫn deployment và vận hành production
 - **[CONTRIBUTING.md](docs/CONTRIBUTING.md)** - Hướng dẫn đóng góp cho dự án
 - **[CHANGELOG.md](docs/CHANGELOG.md)** - Lịch sử thay đổi và release notes
 - **[TEST_README.md](docs/TEST_README.md)** - Tài liệu về testing và validation

@@ -467,4 +467,14 @@ Before considering the pipeline "working", verify:
 
 ---
 
+## 📚 Documentation
+
+For detailed information about specific components:
+
+- **[Xử lý Missing Values](./MISSING_VALUES_HANDLING.md)**: Chi tiết về chiến lược xử lý missing values trong pipeline
+- **[CHANGELOG](./CHANGELOG.md)**: Lịch sử thay đổi và updates
+- **[CONTRIBUTING](./CONTRIBUTING.md)**: Hướng dẫn đóng góp cho dự án
+
+---
+
 **Happy Forecasting! 🚀**
