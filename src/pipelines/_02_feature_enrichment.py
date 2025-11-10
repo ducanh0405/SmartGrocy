@@ -11,15 +11,11 @@ from typing import Dict
 
 # Import centralized configuration and setup
 try:
-    # Ensure project root is in path for imports
-    project_root = Path(__file__).resolve().parent.parent.parent
-    if str(project_root) not in sys.path:
-        sys.path.insert(0, str(project_root))
-
     from src.config import (
-        DATA_DIRS, OUTPUT_FILES, PERFORMANCE_CONFIG,
-        setup_logging, ensure_directories
+        setup_project_path, setup_logging, ensure_directories,
+        DATA_DIRS, OUTPUT_FILES, PERFORMANCE_CONFIG
     )
+    setup_project_path()  # Setup project path for imports
     setup_logging()  # Setup centralized logging
     ensure_directories()  # Ensure all directories exist
     logger = logging.getLogger(__name__)

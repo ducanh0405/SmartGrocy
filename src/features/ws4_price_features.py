@@ -7,7 +7,8 @@ import logging
 
 import pandas as pd
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# Logger will be configured by parent pipeline
+logger = logging.getLogger(__name__)
 
 
 def _clean_causal_data(df_causal: pd.DataFrame) -> pd.DataFrame:
@@ -20,7 +21,7 @@ def _clean_causal_data(df_causal: pd.DataFrame) -> pd.DataFrame:
     Returns:
         Cleaned causal dataframe with promotion flags
     """
-    logging.info("[WS4] Cleaning causal data (promotions)...")
+    logger.info("[WS4] Cleaning causal data (promotions)...")
 
     # Handle both uppercase and lowercase column names
     df_causal = df_causal.copy()
@@ -61,7 +62,7 @@ def _clean_causal_data(df_causal: pd.DataFrame) -> pd.DataFrame:
     # Remove duplicates if any
     df_causal_clean = df_causal[causal_features].drop_duplicates()
 
-    logging.info(f"  Cleaned causal data: {len(df_causal_clean):,} rows")
+    logger.info(f"  Cleaned causal data: {len(df_causal_clean):,} rows")
     return df_causal_clean
 
 def _clean_transaction_data(master_df: pd.DataFrame) -> pd.DataFrame:
@@ -74,7 +75,7 @@ def _clean_transaction_data(master_df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         Dataframe with price and promotion features added
     """
-    logging.info("[WS4] Creating price/promotion features from transaction data...")
+    logger.info("[WS4] Creating price/promotion features from transaction data...")
 
     # These columns come from transaction_data.csv
     price_cols = ['SALES_VALUE', 'RETAIL_DISC', 'COUPON_DISC']
@@ -83,7 +84,7 @@ def _clean_transaction_data(master_df: pd.DataFrame) -> pd.DataFrame:
     existing_price_cols = [col for col in price_cols if col in master_df.columns]
 
     if not existing_price_cols:
-        logging.warning("SKIPPING WS4 price features: No price columns found in master_df")
+        logger.warning("SKIPPING WS4 price features: No price columns found in master_df")
         return master_df
 
     # Fill NaNs (if any)
@@ -115,7 +116,7 @@ def _clean_transaction_data(master_df: pd.DataFrame) -> pd.DataFrame:
     if 'COUPON_DISC' in master_df.columns:
         master_df['is_on_coupon_promo'] = (master_df['COUPON_DISC'] < 0).astype(int)
 
-    logging.info("  Created price/promotion features from transaction data")
+    logger.info("  Created price/promotion features from transaction data")
     return master_df
 
 
@@ -145,7 +146,7 @@ def add_price_promotion_features(
 
     # 2. Process and merge Causal data (Promotions)
     if 'causal_data' not in dataframes_dict:
-        logging.warning(
+        logger.warning(
             "SKIPPING WS4 (Causal): 'causal_data' not found in dataframes_dict. "
             "Returning with transaction-based features only."
         )
@@ -154,7 +155,7 @@ def add_price_promotion_features(
     try:
         df_causal_clean = _clean_causal_data(dataframes_dict['causal_data'])
     except Exception as e:
-        logging.error(f"ERROR cleaning causal data: {e}. Continuing without causal features.")
+        logger.error(f"ERROR cleaning causal data: {e}. Continuing without causal features.")
         return master_df
 
     # 3. Merge into Master Table
@@ -163,7 +164,7 @@ def add_price_promotion_features(
 
     missing_keys = [key for key in merge_keys if key not in master_df.columns]
     if missing_keys:
-        logging.warning(
+        logger.warning(
             f"SKIPPING WS4 merge: Missing required columns in master_df: {missing_keys}. "
             "Returning with transaction-based features only."
         )
@@ -172,7 +173,7 @@ def add_price_promotion_features(
     # Verify merge keys exist in causal data
     missing_causal_keys = [key for key in merge_keys if key not in df_causal_clean.columns]
     if missing_causal_keys:
-        logging.warning(
+        logger.warning(
             f"SKIPPING WS4 merge: Missing required columns in causal_data: {missing_causal_keys}. "
             "Returning with transaction-based features only."
         )
@@ -183,7 +184,7 @@ def add_price_promotion_features(
         master_df = pd.merge(master_df, df_causal_clean, on=merge_keys, how='left')
 
         if master_df.shape[0] != original_rows:
-            logging.error(
+            logger.error(
                 f"ERROR (WS4): Merge changed row count: {original_rows} -> {master_df.shape[0]}. "
                 "Possible row explosion in causal data!"
             )
@@ -194,13 +195,13 @@ def add_price_promotion_features(
         if 'is_on_mailer' in master_df.columns:
             master_df['is_on_mailer'] = master_df['is_on_mailer'].fillna(0).astype(int)
 
-        logging.info("OK. WS4 (Price/Promotion) integration complete.")
+        logger.info("OK. WS4 (Price/Promotion) integration complete.")
 
     except pd.errors.MergeError as e:
-        logging.error(f"ERROR in WS4 merge operation: {e}")
+        logger.error(f"ERROR in WS4 merge operation: {e}")
         raise
     except Exception as e:
-        logging.error(f"Unexpected error in WS4 merge: {e}", exc_info=True)
+        logger.error(f"Unexpected error in WS4 merge: {e}", exc_info=True)
         raise
 
     return master_df

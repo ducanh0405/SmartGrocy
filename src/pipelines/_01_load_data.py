@@ -12,7 +12,8 @@ from typing import Dict, Optional
 
 # Import centralized configuration
 try:
-    from src.config import DATA_DIRS, get_data_directory, setup_logging
+    from src.config import setup_project_path, setup_logging, DATA_DIRS, get_data_directory
+    setup_project_path()  # Setup project path for imports
     setup_logging()  # Setup centralized logging
     logger = logging.getLogger(__name__)
 except ImportError:

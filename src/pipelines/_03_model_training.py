@@ -31,17 +31,13 @@ from pathlib import Path
 from typing import Dict, Tuple, List, Any, Optional
 import argparse
 
-# === PROJECT ROOT ===
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.append(str(PROJECT_ROOT))
-# ====================
-
-# Import configuration
+# Setup project path for imports
 from src.config import (
+    setup_project_path, setup_logging, ensure_directories,
     OUTPUT_FILES, TRAINING_CONFIG, NUMERIC_FEATURES, CATEGORICAL_FEATURES,
-    get_model_config, ensure_directories
+    get_model_config
 )
+setup_project_path()
 
 # Try to import Optuna (optional for tuning)
 try:

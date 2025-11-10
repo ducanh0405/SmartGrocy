@@ -12,10 +12,9 @@ import joblib
 import numpy as np
 import pandas as pd
 
-# FIX: Add PROJECT_ROOT to sys.path BEFORE importing from src
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+# Setup project path for imports
+from src.config import setup_project_path, setup_logging
+setup_project_path()
 
 from src.config import CATEGORICAL_FEATURES, NUMERIC_FEATURES, OUTPUT_FILES, QUANTILES
 
@@ -254,11 +253,9 @@ def predict_on_test_set():
 
 
 if __name__ == "__main__":
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
-
+    # Setup logging
+    setup_logging()
+    
     # Test prediction on test set
     predictions, metrics = predict_on_test_set()
     print("\nPredictions preview:")

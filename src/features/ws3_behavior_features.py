@@ -8,14 +8,15 @@ import logging
 import numpy as np
 import pandas as pd
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# Logger will be configured by parent pipeline
+logger = logging.getLogger(__name__)
 
 def _process_clickstream_logs(df_events):
     """
     Internal function: Implements logic from 'EDA_Data_Preprocess.ipynb'.
     Cleans data, processes timestamps, and prepares log.
     """
-    logging.info("[WS3] Starting behavior log processing (clickstream)...")
+    logger.info("[WS3] Starting behavior log processing (clickstream)...")
 
     # Assume df_events has columns: 'timestamp', 'visitorid', 'event', 'itemid'
     if 'timestamp' in df_events.columns:
@@ -24,7 +25,7 @@ def _process_clickstream_logs(df_events):
     # Handle NaNs (if any)
     df_events = df_events.dropna(subset=['visitorid', 'itemid'])
 
-    logging.info(f"[WS3] Log processing complete. Total events: {len(df_events)}")
+    logger.info(f"[WS3] Log processing complete. Total events: {len(df_events)}")
     return df_events
 
 def _create_user_features(df_logs):
@@ -32,7 +33,7 @@ def _create_user_features(df_logs):
     Internal function: Implements logic from 'Feature_Engineering.ipynb'.
     Creates feature table at user-level.
     """
-    logging.info("[WS3] Starting behavior feature engineering...")
+    logger.info("[WS3] Starting behavior feature engineering...")
 
     # 1. Create basic features (example from your PoC)
     # This is the conversion funnel calculation logic
@@ -74,7 +75,7 @@ def _create_user_features(df_logs):
         last_interaction = df_logs.groupby('visitorid')['timestamp'].max()
         user_features['days_since_last_action'] = (latest_timestamp - last_interaction).dt.total_seconds() / (60 * 60 * 24)
 
-    logging.info(f"[WS3] Feature engineering complete. Number of users: {len(user_features)}")
+    logger.info(f"[WS3] Feature engineering complete. Number of users: {len(user_features)}")
     return user_features
 
 
@@ -93,7 +94,7 @@ def add_behavioral_features(master_df, dataframes_dict):
     # 1. Check if behavior data exists
     required_keys = ['clickstream_log']  # Assume file name is 'clickstream_log'
     if not all(key in dataframes_dict for key in required_keys):
-        logging.warning("SKIPPING Workstream 3: Missing clickstream data.")
+        logger.warning("SKIPPING Workstream 3: Missing clickstream data.")
         return master_df
 
     # 2. Process clickstream data
@@ -113,8 +114,8 @@ def add_behavioral_features(master_df, dataframes_dict):
         numeric_cols = user_features.select_dtypes(include=[np.number]).columns
         master_df[numeric_cols] = master_df[numeric_cols].fillna(0)
 
-        logging.info("OK. Workstream 3 (Behavior) integration successful.")
+        logger.info("OK. Workstream 3 (Behavior) integration successful.")
     else:
-        logging.warning("SKIPPING WS3 merge: Merge keys not found in Master Table.")
+        logger.warning("SKIPPING WS3 merge: Merge keys not found in Master Table.")
 
     return master_df

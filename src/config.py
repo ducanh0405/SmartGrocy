@@ -5,11 +5,25 @@ Centralized configuration management for the E-Grocery Forecaster pipeline.
 
 All hard-coded values should be moved here for easier maintenance and deployment.
 """
+import sys
 from pathlib import Path
 from typing import Any
 
 # Project root directory
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+
+def setup_project_path() -> Path:
+    """
+    Setup PROJECT_ROOT in sys.path for imports.
+    Call this at the beginning of pipeline scripts.
+    
+    Returns:
+        PROJECT_ROOT Path object
+    """
+    if str(PROJECT_ROOT) not in sys.path:
+        sys.path.insert(0, str(PROJECT_ROOT))
+    return PROJECT_ROOT
 
 # ============================================================================
 # DATA PATHS

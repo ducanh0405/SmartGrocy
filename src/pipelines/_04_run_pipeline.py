@@ -5,11 +5,12 @@ import argparse
 import os
 from pathlib import Path
 
-# Configure Logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# Setup project path and logging
+from src.config import setup_project_path, setup_logging, PROJECT_ROOT
+setup_project_path()
+setup_logging()
 
-# Determine Project Root
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+# Determine Project Root and Pipelines Directory
 PIPELINES_DIR = PROJECT_ROOT / 'src' / 'pipelines'
 
 

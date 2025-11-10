@@ -3,6 +3,7 @@ WS0: Aggregation & Grid Creation (Polars + Pandas)
 ===================================================
 Auto-selects fastest implementation. Returns pandas DataFrame for compatibility.
 """
+import gc
 import logging
 
 import numpy as np
