@@ -29,7 +29,7 @@ try:
     logger = logging.getLogger(__name__)
 
 except ImportError as e:
-    print(f"❌ Import error: {e}")
+    print(f"Import error: {e}")
     print("Please install required dependencies:")
     print("pip install -r requirements.txt")
     sys.exit(1)

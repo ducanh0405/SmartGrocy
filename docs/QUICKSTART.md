@@ -77,7 +77,7 @@ pip install -r requirements.txt
 **Key Dependencies:**
 - **Prefect**: Pipeline orchestration và workflow management
 - **Great Expectations**: Data quality monitoring và validation
-- **LightGBM/XGBoost**: Machine learning models
+- **LightGBM**: Machine learning models
 - **Polars/Pandas**: High-performance data processing
 - **Plotly**: Interactive dashboards
 

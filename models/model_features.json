@@ -1,0 +1,36 @@
+{
+    "all_features": [
+        "sales_quantity_lag_1",
+        "sales_quantity_lag_24",
+        "sales_quantity_lag_48",
+        "sales_quantity_lag_168",
+        "hour_of_day",
+        "day_of_week",
+        "is_morning_peak",
+        "is_evening_peak",
+        "is_weekend",
+        "hour_sin",
+        "hour_cos",
+        "dow_sin",
+        "dow_cos",
+        "latent_demand"
+    ],
+    "categorical_features": [
+        "hour_of_day",
+        "day_of_week",
+        "is_morning_peak",
+        "is_evening_peak",
+        "is_weekend"
+    ],
+    "quantiles": [
+        0.05,
+        0.25,
+        0.5,
+        0.75,
+        0.95
+    ],
+    "model_types": [
+        "lightgbm"
+    ],
+    "dataset_trained_on": "FreshRetailNet-50K"
+}

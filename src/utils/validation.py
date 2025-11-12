@@ -60,13 +60,14 @@ def validate_data_ranges(df: pd.DataFrame, column_ranges: dict[str, tuple] | Non
     results = {}
 
     if column_ranges is None:
-        # Use centralized config or defaults
-        column_ranges = VALIDATION_CONFIG.get('data_ranges', {
+        # Use defaults
+        column_ranges = {
             'SALES_VALUE': (0, None),  # Non-negative
             'QUANTITY': (0, None),  # Non-negative
+            'sales_quantity': (0, None),  # Non-negative
             'WEEK_NO': (1, 104),  # Typical week range
             'discount_pct': (0, 1),  # 0-100%
-        })
+        }
 
     for col, (min_val, max_val) in column_ranges.items():
         if col not in df.columns:
@@ -197,7 +198,14 @@ def comprehensive_validation(df: pd.DataFrame, verbose: bool = True) -> dict[str
     if verbose:
         logging.info("\n--- Required Columns ---")
 
-    required_cols = VALIDATION_CONFIG.get('required_columns', ['PRODUCT_ID', 'STORE_ID', 'WEEK_NO', 'SALES_VALUE'])
+    # Get required columns from dataset config if available, otherwise use defaults
+    try:
+        from src.config import get_dataset_config
+        config = get_dataset_config()
+        required_cols = config.get('required_columns', ['product_id', 'store_id', 'hour_timestamp', 'sales_quantity'])
+    except:
+        # Fallback defaults
+        required_cols = ['product_id', 'store_id', 'hour_timestamp', 'sales_quantity']
     col_check = check_required_columns(df, required_cols)
     validation_results['required_columns'] = col_check
 

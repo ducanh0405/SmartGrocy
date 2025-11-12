@@ -12,11 +12,17 @@ import pandas as pd
 from datetime import datetime, timedelta
 
 try:
-    from prefect import flow, task, get_run_context
-    from prefect.tasks import task_input_hash
-    from prefect.cache_policies import INPUTS
-    from prefect.logging import get_run_logger
-    from prefect.states import Failed, Completed
+    from prefect import flow, task  # pyright: ignore[reportMissingImports]
+    from prefect.logging import get_run_logger  # pyright: ignore[reportMissingImports]
+    from prefect.states import Failed, Completed  # pyright: ignore[reportMissingImports]
+    # Try to import cache-related features (may vary by Prefect version)
+    try:
+        from prefect.tasks import task_input_hash  # pyright: ignore[reportMissingImports]
+        from prefect.cache_policies import INPUTS  # pyright: ignore[reportMissingImports]
+    except ImportError:
+        # Fallback for newer Prefect versions
+        task_input_hash = None
+        INPUTS = None
 except ImportError:
     print("Prefect not installed. Install with: pip install prefect")
     raise
@@ -42,7 +48,7 @@ logger = logging.getLogger(__name__)
 quality_monitor = DataQualityMonitor()
 
 
-@task(cache_policy=INPUTS, cache_key_fn=task_input_hash, retries=3, retry_delay_seconds=60)
+@task(retries=3, retry_delay_seconds=60)
 def load_and_validate_data(dataset_config: Dict[str, Any]) -> Dict[str, pd.DataFrame]:
     """
     Load data with caching and validation.
@@ -90,7 +96,7 @@ def load_and_validate_data(dataset_config: Dict[str, Any]) -> Dict[str, pd.DataF
         raise
 
 
-@task(cache_policy=INPUTS, cache_key_fn=task_input_hash, retries=2)
+@task(retries=2)
 def create_master_dataframe(dataframes: Dict[str, pd.DataFrame],
                           dataset_config: Dict[str, Any]) -> pd.DataFrame:
     """
@@ -306,7 +312,7 @@ def generate_quality_report():
         raise
 
 
-@flow(name="SmartGrocy Pipeline", log_prints=True)
+@flow(name="SmartGrocy Pipeline")
 def modern_pipeline_flow(full_data: bool = False):
     """
     Modern pipeline orchestration using Prefect.

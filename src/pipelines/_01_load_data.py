@@ -34,6 +34,56 @@ def _load_file(data_dir: Path, file_stem: str) -> pd.DataFrame:
         logger.warning(f"  File not found: {file_stem}.parquet/csv")
         return None
 
+def _sample_data_for_memory_optimization(dataframes: Dict[str, pd.DataFrame], config: Dict) -> Dict[str, pd.DataFrame]:
+    """
+    Sample data để giảm kích thước nếu cần thiết cho máy có RAM hạn chế.
+    """
+    from src.config import MEMORY_OPTIMIZATION
+    
+    if not MEMORY_OPTIMIZATION.get('enable_sampling', False):
+        return dataframes
+    
+    logger.info("=" * 70)
+    logger.info("MEMORY OPTIMIZATION: Sampling data")
+    logger.info("=" * 70)
+    
+    if 'sales' in dataframes and dataframes['sales'] is not None:
+        df = dataframes['sales']
+        original_size = len(df)
+        
+        # Sample by fraction
+        sample_fraction = MEMORY_OPTIMIZATION.get('sample_fraction', 0.1)
+        if sample_fraction < 1.0:
+            df = df.sample(frac=sample_fraction, random_state=42).reset_index(drop=True)
+            logger.info(f"  Sampled {original_size:,} -> {len(df):,} rows ({sample_fraction*100:.1f}%)")
+        
+        # Limit products
+        max_products = MEMORY_OPTIMIZATION.get('max_products')
+        if max_products and 'product_id' in df.columns:
+            unique_products = df['product_id'].unique()[:max_products]
+            df = df[df['product_id'].isin(unique_products)]
+            logger.info(f"  Limited to {max_products} products: {len(df):,} rows")
+        
+        # Limit stores
+        max_stores = MEMORY_OPTIMIZATION.get('max_stores')
+        if max_stores and 'store_id' in df.columns:
+            unique_stores = df['store_id'].unique()[:max_stores]
+            df = df[df['store_id'].isin(unique_stores)]
+            logger.info(f"  Limited to {max_stores} stores: {len(df):,} rows")
+        
+        # Limit time periods
+        max_time = MEMORY_OPTIMIZATION.get('max_time_periods')
+        time_col = config.get('time_column', 'hour_timestamp')
+        if max_time and time_col in df.columns:
+            time_values = sorted(df[time_col].unique())[:max_time]
+            df = df[df[time_col].isin(time_values)]
+            logger.info(f"  Limited to {max_time} time periods: {len(df):,} rows")
+        
+        dataframes['sales'] = df
+        logger.info(f"✓ Final dataset size: {len(df):,} rows")
+    
+    return dataframes
+
 def _clean_raw_data(dataframes: Dict[str, pd.DataFrame], config: Dict) -> Dict[str, pd.DataFrame]:
     """
     Dọn dẹp dữ liệu thô ngay sau khi tải, trước khi xử lý.
@@ -189,6 +239,9 @@ def load_data() -> (Dict[str, pd.DataFrame], Dict):
     else:
         raise ValueError(f"Unknown dataset name in config: {config['name']}")
 
+    # Sample data for memory optimization (if enabled)
+    dataframes = _sample_data_for_memory_optimization(dataframes, config)
+    
     # Clean raw data before returning
     dataframes = _clean_raw_data(dataframes, config)
 

@@ -178,11 +178,37 @@ def main() -> None:
         else:
             logger.info("VALIDATION: All checks passed.")
 
-        # Save
-        OUTPUT_FILE = OUTPUT_FILES['master_feature_table']
-        master_df.to_parquet(OUTPUT_FILE, index=False, compression='snappy')
+        # Save as Parquet (efficient format)
+        OUTPUT_FILE_PARQUET = OUTPUT_FILES['master_feature_table']
+        master_df.to_parquet(OUTPUT_FILE_PARQUET, index=False, compression='snappy')
+        logger.info(f"SUCCESS: Master Table (Parquet) saved to: {OUTPUT_FILE_PARQUET}")
         
-        logger.info(f"SUCCESS: Master Table saved to: {OUTPUT_FILE}")
+        # Save as CSV (human-readable format)
+        OUTPUT_FILE_CSV = OUTPUT_FILES['master_feature_table_csv']
+        num_rows = master_df.shape[0]
+        
+        if num_rows > 1000000:
+            logger.warning(f"Large dataset detected ({num_rows:,} rows). CSV export may take several minutes...")
+        
+        logger.info(f"Saving Master Table as CSV (this may take a moment for large datasets)...")
+        try:
+            # Use chunking for very large datasets to avoid memory issues
+            if num_rows > 5000000:
+                logger.info("Using chunked CSV writing for very large dataset...")
+                chunk_size = 1000000
+                master_df.iloc[:0].to_csv(OUTPUT_FILE_CSV, index=False, mode='w')  # Write header
+                for i in range(0, num_rows, chunk_size):
+                    chunk = master_df.iloc[i:i+chunk_size]
+                    chunk.to_csv(OUTPUT_FILE_CSV, index=False, mode='a', header=False)
+                    logger.info(f"  Written {min(i+chunk_size, num_rows):,} / {num_rows:,} rows...")
+            else:
+                master_df.to_csv(OUTPUT_FILE_CSV, index=False)
+            
+            logger.info(f"SUCCESS: Master Table (CSV) saved to: {OUTPUT_FILE_CSV}")
+        except Exception as e:
+            logger.error(f"WARNING: Failed to save CSV file: {e}")
+            logger.info("Parquet file is still available for use.")
+        
         logger.info(f"STATS: Final Shape: {master_df.shape[0]:,} rows, {master_df.shape[1]} columns")
         logger.info(f"STATS: Memory: {master_df.memory_usage(deep=True).sum() / 1024**2:.1f} MB")
 

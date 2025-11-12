@@ -6,7 +6,7 @@ Quản lý config tập trung cho SmartGrocy.
 import sys
 import logging
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 # --- 1. PROJECT PATHS ---
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -26,12 +26,15 @@ DATA_DIRS = {
 
 OUTPUT_FILES = {
     'master_feature_table': DATA_DIRS['processed_data'] / 'master_feature_table.parquet',
+    'master_feature_table_csv': DATA_DIRS['processed_data'] / 'master_feature_table.csv',
     'model_features': DATA_DIRS['models'] / 'model_features.json',
     'model_metrics': DATA_DIRS['reports'] / 'metrics' / 'model_metrics.json',
     'models_dir': DATA_DIRS['models'],
     'reports_dir': DATA_DIRS['reports'],
     'dashboard_dir': DATA_DIRS['reports'] / 'dashboard',
     'predictions_test': DATA_DIRS['reports'] / 'predictions_test_set.csv',
+    'shap_values_dir': DATA_DIRS['reports'] / 'shap_values',
+    'dashboard_html': DATA_DIRS['reports'] / 'dashboard' / 'forecast_dashboard.html',
 }
 
 # --- 2. DATASET CONFIGURATIONS (CORE) ---
@@ -83,7 +86,21 @@ DATASET_CONFIGS = {
 
 # --- 3. ACTIVE CONFIG ---
 # Thay đổi 'freshretail' thành 'dunnhumby' để chạy pipeline cho dataset đó
-ACTIVE_DATASET = 'freshretail' 
+ACTIVE_DATASET = 'freshretail'
+
+# --- MEMORY OPTIMIZATION CONFIG ---
+# Tùy chọn để giảm kích thước dataset cho máy có RAM hạn chế
+# Để tắt optimization, set enable_sampling=False
+# Xem docs/MEMORY_OPTIMIZATION.md để biết thêm chi tiết
+MEMORY_OPTIMIZATION = {
+    'enable_sampling': False,  # Tắt sampling để chạy full dataset
+    'sample_fraction': 1.0,   # Fraction of data to use (1.0 = 100% = full dataset)
+    'max_products': None,     # Giới hạn số products (None = không giới hạn)
+    'max_stores': None,       # Giới hạn số stores (None = không giới hạn)
+    'max_time_periods': None, # Giới hạn số time periods (None = không giới hạn)
+    'use_chunking': True,     # Sử dụng chunking cho operations lớn
+    'chunk_size': 100000,     # Kích thước chunk
+} 
 
 def get_dataset_config(dataset_name=None):
     """Lấy config cho dataset đang hoạt động."""
@@ -152,32 +169,89 @@ PERFORMANCE_CONFIG = {
     'parallel_threads': 12,   # Tận dụng 12 luồng (trên 20 luồng)
 }
 
-# Quantile levels
+# Quantile levels - CHỈ TRAIN 5 QUANTILES (Q05, Q25, Q50, Q75, Q95)
 QUANTILES = [0.05, 0.25, 0.50, 0.75, 0.95]
+
+# Model types to train
+MODEL_TYPES = ['lightgbm']  # Mặc định chỉ train LightGBM để test nhanh. Có thể thêm: ['lightgbm', 'catboost', 'random_forest']
 
 # LightGBM hyperparameters (Tối ưu cho tốc độ/hiệu năng trên 32GB RAM)
 LIGHTGBM_PARAMS = {
-    'n_estimators': 600,      # Tăng số lượng cây
+    'n_estimators': 600,
     'learning_rate': 0.03,
-    'num_leaves': 48,         # Tăng
-    'max_depth': 10,          # Tăng
+    'num_leaves': 48,
+    'max_depth': 10,
     'colsample_bytree': 0.7,
     'subsample': 0.7,
     'reg_alpha': 0.1,
     'reg_lambda': 0.1,
     'random_state': 42,
-    'n_jobs': PERFORMANCE_CONFIG['parallel_threads'], # Dùng 16 luồng
+    'n_jobs': PERFORMANCE_CONFIG['parallel_threads'],
     'verbose': -1,
+}
+
+# CatBoost hyperparameters
+CATBOOST_PARAMS = {
+    'iterations': 600,
+    'learning_rate': 0.03,
+    'depth': 10,
+    'l2_leaf_reg': 3,
+    'random_seed': 42,
+    'thread_count': PERFORMANCE_CONFIG['parallel_threads'],
+    'verbose': False,
+}
+
+# Random Forest hyperparameters
+RANDOM_FOREST_PARAMS = {
+    'n_estimators': 200,
+    'max_depth': 15,
+    'min_samples_split': 5,
+    'min_samples_leaf': 2,
+    'max_features': 'sqrt',
+    'random_state': 42,
+    'n_jobs': PERFORMANCE_CONFIG['parallel_threads'],
+    'verbose': 0,
+}
+
+# Model configurations dictionary
+MODEL_CONFIGS = {
+    'lightgbm': {
+        'class': 'LGBMRegressor',
+        'params': LIGHTGBM_PARAMS,
+        'quantile_support': True,  # Hỗ trợ quantile regression trực tiếp
+    },
+    'catboost': {
+        'class': 'CatBoostRegressor',
+        'params': CATBOOST_PARAMS,
+        'quantile_support': False,  # Cần wrapper
+    },
+    'random_forest': {
+        'class': 'RandomForestRegressor',
+        'params': RANDOM_FOREST_PARAMS,
+        'quantile_support': False,  # Cần wrapper
+    },
 }
 
 # Training configuration
 TRAINING_CONFIG = {
     'quantiles': QUANTILES,
-    'hyperparameters': LIGHTGBM_PARAMS,
+    'model_types': MODEL_TYPES,  # List các model types để train
+    'hyperparameters': LIGHTGBM_PARAMS,  # Default (backward compatible)
     'train_test_split': {
         'method': 'time_based',
         'cutoff_percentile': 0.8, # 80% train, 20% test
     },
+    'save_shap_values': True,  # Lưu SHAP values sau khi train
+    'shap_sample_size': 1000,  # Số lượng samples để tính SHAP (None = all)
+}
+
+# SHAP configuration
+SHAP_CONFIG = {
+    'enabled': True,
+    'sample_size': 1000,  # Số lượng samples để tính SHAP trong prediction
+    'max_display_features': 20,  # Số lượng features tối đa để hiển thị trong SHAP plots
+    'save_plots': True,
+    'plot_type': 'summary',  # 'summary', 'waterfall', 'bar', 'beeswarm'
 }
 
 # --- 6. DATA QUALITY & MONITORING CONFIG ---
@@ -226,11 +300,23 @@ PERFORMANCE_CONFIG.update({
 })
 
 # --- 8. HELPER FUNCTIONS ---
-def get_model_config(quantile: float) -> dict[str, Any]:
-    """Lấy config model cho 1 quantile."""
-    config = LIGHTGBM_PARAMS.copy()
-    config['objective'] = 'quantile'
-    config['alpha'] = quantile
+def get_model_config(quantile: float, model_type: str = 'lightgbm') -> dict[str, Any]:
+    """Lấy config model cho 1 quantile và model type."""
+    if model_type not in MODEL_CONFIGS:
+        raise ValueError(f"Model type '{model_type}' not supported. Available: {list(MODEL_CONFIGS.keys())}")
+    
+    model_config = MODEL_CONFIGS[model_type]
+    config = model_config['params'].copy()
+    
+    # Thêm quantile-specific config
+    if model_config['quantile_support']:
+        # LightGBM hỗ trợ quantile regression trực tiếp
+        config['objective'] = 'quantile'
+        config['alpha'] = quantile
+    else:
+        # Các model khác sẽ dùng wrapper (QuantileRegressor từ sklearn)
+        config['quantile'] = quantile
+    
     return config
 
 def get_data_directory() -> Path:
@@ -243,6 +329,7 @@ def ensure_directories() -> None:
         dir_path.mkdir(parents=True, exist_ok=True)
     (DATA_DIRS['reports'] / 'metrics').mkdir(parents=True, exist_ok=True)
     (DATA_DIRS['reports'] / 'dashboard').mkdir(parents=True, exist_ok=True)
+    (DATA_DIRS['reports'] / 'shap_values').mkdir(parents=True, exist_ok=True)
 
 def setup_logging(level: str = None, log_to_file: bool = None) -> None:
     """Cài đặt logging tập trung."""

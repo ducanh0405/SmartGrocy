@@ -17,12 +17,25 @@ try:
     from great_expectations.core import ExpectationSuite
     from great_expectations.core.expectation_configuration import ExpectationConfiguration
     from great_expectations.validator.validator import Validator
+    HAS_GREAT_EXPECTATIONS = True
+except ImportError:
+    HAS_GREAT_EXPECTATIONS = False
+    ge = None
+    ExpectationSuite = None
+    ExpectationConfiguration = None
+    Validator = None
+
+try:
     from evidently import ColumnMapping
     from evidently.report import Report
     from evidently.metrics import DataDriftTable, DatasetDriftMetric
+    HAS_EVIDENTLY = True
 except ImportError:
-    print("Data quality libraries not installed. Install with: pip install great-expectations evidently")
-    raise
+    HAS_EVIDENTLY = False
+    ColumnMapping = None
+    Report = None
+    DataDriftTable = None
+    DatasetDriftMetric = None
 
 from src.config import OUTPUT_FILES, PROJECT_ROOT
 
@@ -38,7 +51,10 @@ class DataQualityMonitor:
         self.quality_history = {}
         self.baseline_profiles = {}
         self.gx_context = None
-        self._setup_great_expectations()
+        if HAS_GREAT_EXPECTATIONS:
+            self._setup_great_expectations()
+        else:
+            logger.warning("Great Expectations not available. Data quality monitoring will be limited.")
 
     def _setup_great_expectations(self):
         """Setup Great Expectations context."""

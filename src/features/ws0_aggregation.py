@@ -141,11 +141,11 @@ def create_master_grid(df: pd.DataFrame, dataset_config: dict = None) -> pd.Data
         agg_df = agg_df[agg_df[filter_col] > 0]
         logger.info(f"WS0-Config: Non-stockout dataset - filtered zeros: {len(agg_df)} records remain")
 
-    # Create complete time grid for zero-filling
-    unique_entities = {}
-    for key in groupby_keys[:-1]:  # All except time column
-        unique_entities[key] = sorted(agg_df[key].unique())
-
+    # Get unique entity combinations that actually exist in the data
+    # This is much more memory-efficient than creating all possible combinations
+    entity_keys = groupby_keys[:-1]  # All except time column
+    unique_entity_combos = agg_df[entity_keys].drop_duplicates()
+    
     # Get time range based on dataset
     if temporal_unit == 'hour':
         # For FreshRetail: use actual hours in data (not fixed range)
@@ -154,27 +154,80 @@ def create_master_grid(df: pd.DataFrame, dataset_config: dict = None) -> pd.Data
         # For Dunnhumby: use weeks 1-104
         time_values = list(range(1, 105))
 
-    logger.info(f"WS0-Config: Grid dimensions: {len(unique_entities)} entities × {len(time_values)} {temporal_unit}s")
+    logger.info(f"WS0-Config: Unique entity combinations: {len(unique_entity_combos):,}")
+    logger.info(f"WS0-Config: Time periods: {len(time_values)} {temporal_unit}s")
+    
+    # Calculate total grid size
+    total_grid_size = len(unique_entity_combos) * len(time_values)
+    logger.info(f"WS0-Config: Total grid size: {total_grid_size:,} rows")
+    
+    # Check memory requirements and warn if too large
+    estimated_memory_gb = (total_grid_size * 8) / (1024**3)  # Rough estimate in GB
+    if estimated_memory_gb > 2.0:
+        logger.warning(f"WS0-Config: Large grid detected! Estimated memory: {estimated_memory_gb:.2f} GB")
+        logger.warning(f"WS0-Config: Consider enabling MEMORY_OPTIMIZATION in config.py")
+    
+    # Memory-efficient grid creation: only for existing entity combinations
+    # Use chunking if grid is very large
+    from src.config import MEMORY_OPTIMIZATION
+    use_chunking = MEMORY_OPTIMIZATION.get('use_chunking', True) and total_grid_size > 1000000
+    
+    if use_chunking:
+        logger.info("WS0-Config: Using chunked grid creation for memory efficiency")
+        chunk_size = MEMORY_OPTIMIZATION.get('chunk_size', 100000)
+        grid_chunks = []
+        
+        # Process entity combinations in chunks
+        for i in range(0, len(unique_entity_combos), chunk_size // len(time_values)):
+            chunk_entities = unique_entity_combos.iloc[i:i + (chunk_size // len(time_values))]
+            if len(chunk_entities) == 0:
+                break
+                
+            time_df = pd.DataFrame({time_col: time_values})
+            try:
+                chunk_grid = chunk_entities.merge(time_df, how='cross')
+            except TypeError:
+                chunk_entities = chunk_entities.copy()
+                chunk_entities['_key'] = 1
+                time_df['_key'] = 1
+                chunk_grid = chunk_entities.merge(time_df, on='_key').drop('_key', axis=1)
+            
+            grid_chunks.append(chunk_grid)
+            logger.info(f"WS0-Config: Processed chunk {len(grid_chunks)}: {len(chunk_grid):,} rows")
+        
+        grid_df = pd.concat(grid_chunks, ignore_index=True)
+        logger.info(f"WS0-Config: Combined {len(grid_chunks)} chunks: {len(grid_df):,} total rows")
+    else:
+        # Standard approach for smaller grids
+        time_df = pd.DataFrame({time_col: time_values})
+        
+        # Create grid using cross join (memory efficient)
+        # For pandas < 2.0, use assign with key trick
+        try:
+            # Try pandas 2.0+ cross merge
+            grid_df = unique_entity_combos.merge(time_df, how='cross')
+        except TypeError:
+            # Fallback for older pandas: use assign with key
+            unique_entity_combos = unique_entity_combos.copy()
+            unique_entity_combos['_key'] = 1
+            time_df['_key'] = 1
+            grid_df = unique_entity_combos.merge(time_df, on='_key').drop('_key', axis=1)
 
-    # Create full grid (optimized for memory)
-    grid_combinations = []
-    entity_keys = list(unique_entities.keys())
-    entity_values = [unique_entities[key] for key in entity_keys]
-
-    for entity_combo in pd.MultiIndex.from_product(entity_values, names=entity_keys):
-        for time_val in time_values:
-            row = dict(zip(entity_keys + [time_col], entity_combo + (time_val,)))
-            grid_combinations.append(row)
-
-    # Create grid DataFrame
-    grid_df = pd.DataFrame(grid_combinations)
-
-    # Left join with aggregated data
-    master_df = grid_df.merge(
-        agg_df,
-        on=groupby_keys,
-        how='left'
-    )
+    # Left join with aggregated data (use merge in chunks if very large)
+    if use_chunking and len(grid_df) > 1000000:
+        logger.info("WS0-Config: Merging aggregated data in chunks")
+        merge_chunks = []
+        chunk_size = MEMORY_OPTIMIZATION.get('chunk_size', 100000)
+        
+        for i in range(0, len(grid_df), chunk_size):
+            chunk_grid = grid_df.iloc[i:i + chunk_size]
+            chunk_merged = chunk_grid.merge(agg_df, on=groupby_keys, how='left')
+            merge_chunks.append(chunk_merged)
+            logger.info(f"WS0-Config: Merged chunk {len(merge_chunks)}: {len(chunk_merged):,} rows")
+        
+        master_df = pd.concat(merge_chunks, ignore_index=True)
+    else:
+        master_df = grid_df.merge(agg_df, on=groupby_keys, how='left')
 
     # Zero-fill missing values
     fill_cols = _get_fill_columns(agg_df.columns)

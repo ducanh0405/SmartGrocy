@@ -1,7 +1,7 @@
 # 🏆 SmartGrocy
 
 [![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-blue.svg)](https://www.python.org/downloads/)
-[![Framework](https://img.shields.io/badge/Models-LightGBM%20%7C%20XGBoost-green.svg)](https://lightgbm.readthedocs.io/)
+[![Framework](https://img.shields.io/badge/Models-LightGBM-green.svg)](https://lightgbm.readthedocs.io/)
 [![Dashboard](https://img.shields.io/badge/Dashboard-Interactive%20Plotly-red.svg)](https://plotly.com/)
 [![License](https://img.shields.io/badge/License-MIT-purple.svg)](https://opensource.org/licenses/MIT)
 
@@ -103,7 +103,7 @@ E-Grocery_Forecaster/
 
 ## 🔧 Tech Stack
 
-- **ML**: LightGBM, XGBoost, Optuna
+- **ML**: LightGBM, Optuna
 - **Data**: Pandas, Polars, PyArrow
 - **Visualization**: Plotly, Matplotlib
 - **Orchestration**: Prefect

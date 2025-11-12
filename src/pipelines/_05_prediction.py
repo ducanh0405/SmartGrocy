@@ -1,156 +1,509 @@
 """
-WS5: Stockout Recovery Module (TỐI ƯU SONG SONG)
-=================================================
-Recovers latent demand and adds stockout context features using parallel processing.
+Quantile Prediction Pipeline với SHAP Values
+=============================================
+Prediction pipeline với hỗ trợ nhiều models và SHAP explanation.
 """
+import sys
+import warnings
 import logging
-import numpy as np
-import pandas as pd
+from pathlib import Path
 
-# Import parallel processing utilities
-try:
-    from ..utils.parallel_processing import parallel_groupby_apply
-    from ..config import PERFORMANCE_CONFIG
-    HAS_PARALLEL = True
-except ImportError:
-    HAS_PARALLEL = False
+# Setup project path FIRST before any other imports
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
-# Fallback logger
+# Now import config
 try:
-    from ..config import setup_logging
+    from src.config import (
+        setup_project_path, setup_logging, ensure_directories,
+        OUTPUT_FILES, TRAINING_CONFIG, SHAP_CONFIG, MODEL_CONFIGS,
+        get_dataset_config
+    )
+    setup_project_path()
     setup_logging()
+    ensure_directories()
     logger = logging.getLogger(__name__)
+except ImportError as e:
+    print(f"Error: Cannot import config. Please ensure src/config.py exists.")
+    print(f"Project root: {PROJECT_ROOT}")
+    print(f"Import error: {e}")
+    print(f"Python path: {sys.path[:3]}")
+    sys.exit(1)
+
+# Import other dependencies after config is loaded
+import pandas as pd
+import numpy as np
+import joblib
+import json
+from typing import Dict, List, Tuple, Optional, Any
+import time
+
+# SHAP imports
+try:
+    import shap
+    SHAP_AVAILABLE = True
 except ImportError:
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(__name__)
+    SHAP_AVAILABLE = False
+    warnings.warn("SHAP not available. Install with: pip install shap")
 
-# --- Helper functions (chạy trên từng group) ---
+warnings.filterwarnings('ignore')
 
-def _estimate_latent_demand_group(group_df: pd.DataFrame) -> pd.DataFrame:
+
+class QuantileForecaster:
     """
-    Ước tính latent demand cho MỘT group (product-store).
+    Quantile Forecaster class với hỗ trợ nhiều models và SHAP values.
     """
-    group_result = group_df.copy()
-    group_result['latent_demand'] = 0.0
-
-    stockout_mask = group_result['is_stockout'] == 1
-    if not stockout_mask.any():
-        return group_result # Không có stockout
-
-    stockout_indices = group_result[stockout_mask].index
-
-    for idx in stockout_indices:
-        # Strategy 1: Same hour of day, same day of week (nếu có)
-        latent_estimate = 0.1 # default
-        row = group_result.loc[idx]
+    
+    def __init__(self, model_types: Optional[List[str]] = None):
+        """
+        Initialize QuantileForecaster.
         
-        if 'hour_of_day' in group_result.columns and 'day_of_week' in group_result.columns:
-            same_hour_dow_mask = (
-                (group_result['hour_of_day'] == row['hour_of_day']) &
-                (group_result['day_of_week'] == row['day_of_week']) &
-                (group_result['is_stockout'] == 0) & # Chỉ non-stockout
-                (group_result.index < idx) # Chỉ trong quá khứ
+        Args:
+            model_types: List các model types để load. Nếu None, load tất cả models có sẵn.
+        """
+        self.model_types = model_types or TRAINING_CONFIG.get('model_types', ['lightgbm'])
+        self.quantiles = TRAINING_CONFIG['quantiles']
+        self.models = {}  # {model_type: {quantile: model}}
+        self.feature_names = None
+        self.categorical_features = None
+        self.config = get_dataset_config()
+        
+        logger.info(f"Initializing QuantileForecaster with models: {self.model_types}")
+    
+    def load_models(self, models_dir: Optional[Path] = None) -> None:
+        """
+        Load trained models từ models directory.
+        
+        Args:
+            models_dir: Directory chứa models. Nếu None, dùng OUTPUT_FILES['models_dir'].
+        """
+        if models_dir is None:
+            models_dir = OUTPUT_FILES['models_dir']
+        
+        logger.info(f"Loading models from: {models_dir}")
+        
+        # Load model_features.json để lấy feature names
+        features_path = OUTPUT_FILES['model_features']
+        if features_path.exists():
+            with open(features_path, 'r') as f:
+                features_config = json.load(f)
+                self.feature_names = features_config.get('all_features', [])
+                self.categorical_features = features_config.get('categorical_features', [])
+                logger.info(f"Loaded {len(self.feature_names)} features")
+                logger.info(f"Loaded {len(self.categorical_features)} categorical features")
+        else:
+            logger.warning(f"Model features config not found: {features_path}")
+        
+        # Load models cho từng model type và quantile
+        for model_type in self.model_types:
+            self.models[model_type] = {}
+            
+            for quantile in self.quantiles:
+                # Tạo tên file model
+                model_filename = f"{model_type}_q{int(quantile*100):02d}_forecaster.joblib"
+                model_path = models_dir / model_filename
+                
+                if model_path.exists():
+                    try:
+                        model = joblib.load(model_path)
+                        self.models[model_type][quantile] = model
+                        logger.info(f"  Loaded {model_type} Q{int(quantile*100):02d} model")
+                    except Exception as e:
+                        logger.error(f"  Error loading {model_type} Q{int(quantile*100):02d}: {e}")
+                else:
+                    logger.warning(f"  Model not found: {model_path}")
+        
+        # Kiểm tra xem có models nào được load không
+        total_models = sum(len(models) for models in self.models.values())
+        if total_models == 0:
+            raise FileNotFoundError(f"No models found in {models_dir}. Please train models first.")
+        
+        logger.info(f"Loaded {total_models} models across {len(self.models)} model types")
+    
+    def prepare_features(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Chuẩn bị features cho prediction.
+        
+        Args:
+            df: Input DataFrame
+            
+        Returns:
+            DataFrame với features đã được chuẩn bị
+        """
+        if self.feature_names is None:
+            raise ValueError("Feature names not loaded. Call load_models() first.")
+        
+        # Lọc features có trong df
+        available_features = [f for f in self.feature_names if f in df.columns]
+        missing_features = [f for f in self.feature_names if f not in df.columns]
+        
+        if missing_features:
+            logger.warning(f"Missing {len(missing_features)} features: {missing_features[:10]}...")
+            # Fill missing features với 0
+            for feature in missing_features:
+                df[feature] = 0
+        
+        # Chọn features
+        X = df[self.feature_names].copy()
+        
+        # Fill NaN
+        numeric_features = X.select_dtypes(include=[np.number]).columns
+        X[numeric_features] = X[numeric_features].fillna(0)
+        
+        # Chuẩn bị categorical features
+        for col in self.categorical_features:
+            if col in X.columns:
+                if X[col].dtype.name not in ['category', 'object']:
+                    X[col] = X[col].astype('category')
+                # Fill missing categories với 'Unknown'
+                if X[col].isnull().any():
+                    if hasattr(X[col], 'cat'):
+                        X[col] = X[col].cat.add_categories(['Unknown']).fillna('Unknown')
+                    else:
+                        X[col] = X[col].fillna('Unknown')
+        
+        return X
+    
+    def predict(self, df: pd.DataFrame, model_type: Optional[str] = None) -> pd.DataFrame:
+        """
+        Generate predictions cho input data.
+        
+        Args:
+            df: Input DataFrame
+            model_type: Model type để predict. Nếu None, dùng model đầu tiên trong self.model_types.
+            
+        Returns:
+            DataFrame với predictions cho từng quantile
+        """
+        if not self.models:
+            raise ValueError("No models loaded. Call load_models() first.")
+        
+        if model_type is None:
+            model_type = self.model_types[0]
+        
+        if model_type not in self.models:
+            raise ValueError(f"Model type '{model_type}' not loaded. Available: {list(self.models.keys())}")
+        
+        logger.info(f"Generating predictions using {model_type} models...")
+        
+        # Chuẩn bị features
+        X = self.prepare_features(df)
+        
+        # Predict cho từng quantile
+        predictions = df.copy()
+        models = self.models[model_type]
+        
+        for quantile in self.quantiles:
+            if quantile in models:
+                model = models[quantile]
+                y_pred = model.predict(X)
+                y_pred = np.maximum(y_pred, 0)  # Clip negative predictions
+                predictions[f'forecast_q{int(quantile*100):02d}'] = y_pred
+            else:
+                logger.warning(f"Model for Q{int(quantile*100):02d} not found. Skipping.")
+        
+        # Tính prediction interval
+        if len(self.quantiles) >= 2:
+            lower_q = min(self.quantiles)
+            upper_q = max(self.quantiles)
+            lower_col = f'forecast_q{int(lower_q*100):02d}'
+            upper_col = f'forecast_q{int(upper_q*100):02d}'
+            if lower_col in predictions.columns and upper_col in predictions.columns:
+                predictions['prediction_interval'] = predictions[upper_col] - predictions[lower_col]
+                predictions['prediction_center'] = (predictions[upper_col] + predictions[lower_col]) / 2
+        
+        logger.info(f"Generated predictions for {len(predictions)} samples")
+        return predictions
+    
+    def predict_shap(self, df: pd.DataFrame, model_type: Optional[str] = None, 
+                    sample_size: Optional[int] = None, quantile: float = 0.50) -> Tuple[pd.DataFrame, Dict]:
+        """
+        Generate predictions với SHAP values.
+        
+        Args:
+            df: Input DataFrame
+            model_type: Model type để predict. Nếu None, dùng model đầu tiên.
+            sample_size: Số lượng samples để tính SHAP. Nếu None, dùng SHAP_CONFIG['sample_size'].
+            quantile: Quantile để tính SHAP values (thường dùng median 0.50).
+            
+        Returns:
+            Tuple của (predictions DataFrame, SHAP values dict)
+        """
+        if not SHAP_AVAILABLE:
+            raise ImportError("SHAP not available. Install with: pip install shap")
+        
+        if not self.models:
+            raise ValueError("No models loaded. Call load_models() first.")
+        
+        if model_type is None:
+            model_type = self.model_types[0]
+        
+        if model_type not in self.models:
+            raise ValueError(f"Model type '{model_type}' not loaded. Available: {list(self.models.keys())}")
+        
+        if quantile not in self.models[model_type]:
+            raise ValueError(f"Model for quantile {quantile} not found.")
+        
+        logger.info(f"Generating SHAP values using {model_type} Q{int(quantile*100):02d} model...")
+        
+        # Chuẩn bị features
+        X = self.prepare_features(df)
+        
+        # Sample data nếu cần
+        sample_size = sample_size or SHAP_CONFIG.get('sample_size', 1000)
+        if len(X) > sample_size:
+            sample_idx = np.random.choice(len(X), sample_size, replace=False)
+            X_sample = X.iloc[sample_idx].copy()
+            logger.info(f"Sampling {sample_size} rows for SHAP calculation")
+        else:
+            X_sample = X.copy()
+            sample_idx = np.arange(len(X))
+        
+        # Get model
+        model = self.models[model_type][quantile]
+        
+        # Tính SHAP values
+        try:
+            # TreeExplainer cho tree-based models
+            if model_type in ['lightgbm', 'catboost', 'random_forest']:
+                explainer = shap.TreeExplainer(model)
+                shap_values = explainer.shap_values(X_sample)
+                
+                # SHAP values có thể là array hoặc list
+                if isinstance(shap_values, list):
+                    shap_values = shap_values[0]  # Lấy giá trị đầu tiên nếu là list
+                
+                # Tạo DataFrame SHAP values
+                shap_df = pd.DataFrame(
+                    shap_values,
+                    columns=X_sample.columns,
+                    index=X_sample.index
+                )
+                
+                # Tính base value
+                base_value = explainer.expected_value
+                if isinstance(base_value, np.ndarray):
+                    base_value = base_value[0] if len(base_value) > 0 else 0.0
+                
+                logger.info(f"Calculated SHAP values for {len(shap_df)} samples")
+                logger.info(f"Base value: {base_value:.4f}")
+                
+                # Tạo SHAP summary
+                shap_summary = {
+                    'shap_values': shap_df,
+                    'base_value': base_value,
+                    'feature_names': X_sample.columns.tolist(),
+                    'sample_indices': sample_idx.tolist(),
+                    'model_type': model_type,
+                    'quantile': quantile,
+                }
+                
+                return X_sample, shap_summary
+            else:
+                raise ValueError(f"SHAP not supported for model type: {model_type}")
+                
+        except Exception as e:
+            logger.error(f"Error calculating SHAP values: {e}")
+            raise
+    
+    def predict_with_shap(self, df: pd.DataFrame, model_type: Optional[str] = None,
+                         sample_size: Optional[int] = None) -> Dict[str, Any]:
+        """
+        Generate predictions và SHAP values cùng lúc.
+        
+        Args:
+            df: Input DataFrame
+            model_type: Model type để predict
+            sample_size: Số lượng samples để tính SHAP
+            
+        Returns:
+            Dict chứa predictions và SHAP values
+        """
+        # Generate predictions
+        predictions = self.predict(df, model_type=model_type)
+        
+        # Generate SHAP values (sử dụng median quantile)
+        median_quantile = 0.50
+        try:
+            X_sample, shap_summary = self.predict_shap(
+                df, model_type=model_type, sample_size=sample_size, quantile=median_quantile
             )
-            if same_hour_dow_mask.sum() >= 2: # Cần ít nhất 2 điểm
-                historical_avg = group_result.loc[same_hour_dow_mask, 'sales_quantity'].mean()
-                if not np.isnan(historical_avg) and historical_avg > 0:
-                    latent_estimate = historical_avg
+            
+            return {
+                'predictions': predictions,
+                'shap_values': shap_summary,
+            }
+        except Exception as e:
+            logger.warning(f"Could not generate SHAP values: {e}")
+            return {
+                'predictions': predictions,
+                'shap_values': None,
+            }
 
-        # Strategy 2: Fallback - Trung bình 24h gần nhất (non-stockout)
-        if latent_estimate == 0.1:
-            recent_mask = (
-                (group_result.index < idx) &
-                (group_result.index >= idx - pd.Timedelta(hours=24)) & # 24h qua
-                (group_result['is_stockout'] == 0)
-            )
-            if recent_mask.sum() > 0:
-                recent_avg = group_result.loc[recent_mask, 'sales_quantity'].mean()
-                if not np.isnan(recent_avg) and recent_avg > 0:
-                    latent_estimate = recent_avg
 
-        group_result.loc[idx, 'latent_demand'] = latent_estimate
-
-    return group_result
-
-def _add_stockout_features_group(group_df: pd.DataFrame) -> pd.DataFrame:
+def evaluate_predictions(predictions: pd.DataFrame, y_true: pd.Series, 
+                        quantiles: List[float]) -> Dict[str, float]:
     """
-    Thêm stockout features cho MỘT group (product-store).
+    Evaluate predictions với nhiều metrics.
+    
+    Args:
+        predictions: DataFrame với predictions
+        y_true: True values
+        quantiles: List quantiles
+        
+    Returns:
+        Dict với metrics
     """
-    group_result = group_df.copy()
-    
-    if 'is_stockout' not in group_result.columns:
-        return group_result
-
-    # Feature 1: Stockout duration
-    stockout_mask = group_result['is_stockout'] == 1
-    consecutive_stockouts = stockout_mask.groupby((stockout_mask != stockout_mask.shift()).cumsum()).cumsum()
-    group_result['stockout_duration'] = consecutive_stockouts
-    
-    # Feature 2: Time since last stockout
-    group_result['time_since_last_stockout'] = stockout_mask.groupby((stockout_mask != stockout_mask.shift()).cumsum() == 0).cumsum()
-    group_result.loc[stockout_mask, 'time_since_last_stockout'] = 0 # Reset về 0 trong khi stockout
-
-    # Feature 3: Stockout frequency (rolling 1 week = 168 hours)
-    group_result['stockout_frequency'] = group_result['is_stockout'].rolling(window=168, min_periods=1).sum()
-
-    # Feature 4: Time to next stockout (khó tính song song, có thể bỏ qua)
-    group_result['time_to_next_stockout'] = 0 
-    
-    # Feature 5: Stockout severity
-    if 'latent_demand' in group_result.columns:
-        expected_demand = group_result['sales_quantity'].rolling(window=24, min_periods=1).mean().shift(1).fillna(0)
-        group_result['stockout_severity'] = group_result['latent_demand'] / (expected_demand + 1e-6)
-    
-    return group_result
-
-# --- Hàm chính (gọi từ pipeline) ---
-
-def recover_latent_demand(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    (Parallel) Ước tính latent demand cho tất cả group.
-    """
-    logger.info("WS5: Starting latent demand recovery (Parallel)...")
-    if not HAS_PARALLEL:
-        logger.warning("WS5: Parallel processing not available. Falling back to slow loop.")
-        # Thêm logic loop ở đây nếu cần
-        return df
-
-    n_jobs = PERFORMANCE_CONFIG.get('parallel_threads', -1)
-    df_result = parallel_groupby_apply(
-        df,
-        group_cols=['product_id', 'store_id'],
-        func=_estimate_latent_demand_group,
-        n_jobs=n_jobs,
-        verbose=5
+    from sklearn.metrics import (
+        mean_squared_error, mean_absolute_error, mean_pinball_loss,
+        r2_score, mean_absolute_percentage_error
     )
     
-    total_latent = df_result['latent_demand'].sum()
-    logger.info(f"WS5: Latent demand recovery complete. Total estimated: {total_latent:.2f}")
-    return df_result
-
-def add_stockout_features(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    (Parallel) Thêm stockout context features cho tất cả group.
-    """
-    logger.info("WS5: Adding stockout context features (Parallel)...")
-    if not HAS_PARALLEL:
-        logger.warning("WS5: Parallel processing not available. Falling back to slow loop.")
-        return df
-        
-    n_jobs = PERFORMANCE_CONFIG.get('parallel_threads', -1)
-    df_result = parallel_groupby_apply(
-        df,
-        group_cols=['product_id', 'store_id'],
-        func=_add_stockout_features_group,
-        n_jobs=n_jobs,
-        verbose=5
-    )
+    metrics = {}
     
-    # Fill NaNs
-    feature_cols = ['stockout_duration', 'time_since_last_stockout', 'stockout_frequency', 'stockout_severity']
-    for col in feature_cols:
-        if col in df_result.columns:
-            df_result[col] = df_result[col].fillna(0)
+    # Metrics cho từng quantile
+    for quantile in quantiles:
+        col = f'forecast_q{int(quantile*100):02d}'
+        if col in predictions.columns:
+            y_pred = predictions[col]
+            
+            # Pinball loss
+            pinball = mean_pinball_loss(y_true, y_pred, alpha=quantile)
+            metrics[f'q{int(quantile*100):02d}_pinball_loss'] = pinball
+            
+            # MAE
+            mae = mean_absolute_error(y_true, y_pred)
+            metrics[f'q{int(quantile*100):02d}_mae'] = mae
+            
+            # RMSE
+            rmse = np.sqrt(mean_squared_error(y_true, y_pred))
+            metrics[f'q{int(quantile*100):02d}_rmse'] = rmse
+            
+            # MAPE
+            mape = mean_absolute_percentage_error(y_true, y_pred)
+            metrics[f'q{int(quantile*100):02d}_mape'] = mape
+    
+    # Coverage
+    if len(quantiles) >= 2:
+        lower_q = min(quantiles)
+        upper_q = max(quantiles)
+        lower_col = f'forecast_q{int(lower_q*100):02d}'
+        upper_col = f'forecast_q{int(upper_q*100):02d}'
+        if lower_col in predictions.columns and upper_col in predictions.columns:
+            coverage = ((y_true >= predictions[lower_col]) & 
+                       (y_true <= predictions[upper_col])).mean()
+            metrics[f'coverage_{(upper_q-lower_q)*100:.0f}%'] = coverage
+    
+    # R2 score (sử dụng median quantile)
+    median_col = f'forecast_q{int(0.50*100):02d}'
+    if median_col in predictions.columns:
+        r2 = r2_score(y_true, predictions[median_col])
+        metrics['r2_score'] = r2
+    
+    return metrics
 
-    logger.info("WS5: Stockout features complete.")
-    return df_result
+
+def main():
+    """Main function để chạy prediction pipeline."""
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Generate predictions với SHAP values')
+    parser.add_argument('--model-type', type=str, default=None,
+                       help='Model type để predict (lightgbm, catboost, random_forest)')
+    parser.add_argument('--shap', action='store_true', help='Generate SHAP values')
+    parser.add_argument('--sample-size', type=int, default=None,
+                       help='Số lượng samples để tính SHAP')
+    args = parser.parse_args()
+    
+    logger.info("=" * 70)
+    logger.info("STARTING PREDICTION PIPELINE")
+    logger.info("=" * 70)
+    
+    # Load data
+    logger.info("Loading data...")
+    df = pd.read_parquet(OUTPUT_FILES['master_feature_table'])
+    config = get_dataset_config()
+    target_col = config['target_column']
+    time_col = config['time_column']
+    
+    # Split test set
+    time_col_data = pd.to_datetime(df[time_col])
+    cutoff_percentile = TRAINING_CONFIG['train_test_split']['cutoff_percentile']
+    cutoff_time = time_col_data.quantile(cutoff_percentile)
+    
+    test_mask = time_col_data >= cutoff_time
+    df_test = df[test_mask].copy()
+    y_test = df_test[target_col]
+    
+    logger.info(f"Test set size: {len(df_test)}")
+    
+    # Initialize forecaster
+    logger.info("Initializing QuantileForecaster...")
+    forecaster = QuantileForecaster()
+    forecaster.load_models()
+    
+    # Generate predictions
+    logger.info("Generating predictions...")
+    if args.shap:
+        results = forecaster.predict_with_shap(
+            df_test, model_type=args.model_type, sample_size=args.sample_size
+        )
+        predictions = results['predictions']
+        shap_summary = results['shap_values']
+    else:
+        predictions = forecaster.predict(df_test, model_type=args.model_type)
+        shap_summary = None
+    
+    # Evaluate
+    logger.info("Evaluating predictions...")
+    metrics = evaluate_predictions(predictions, y_test, TRAINING_CONFIG['quantiles'])
+    
+    # Save predictions
+    predictions_path = OUTPUT_FILES['predictions_test']
+    predictions.to_csv(predictions_path, index=False)
+    logger.info(f"Predictions saved to: {predictions_path}")
+    
+    # Save metrics
+    metrics_path = OUTPUT_FILES['model_metrics']
+    with open(metrics_path, 'w') as f:
+        json.dump(metrics, f, indent=4)
+    logger.info(f"Metrics saved to: {metrics_path}")
+    
+    # Save SHAP values nếu có
+    if shap_summary is not None:
+        shap_dir = OUTPUT_FILES['shap_values_dir']
+        shap_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Save SHAP values DataFrame
+        shap_df_path = shap_dir / 'shap_values.csv'
+        shap_summary['shap_values'].to_csv(shap_df_path)
+        logger.info(f"SHAP values saved to: {shap_df_path}")
+        
+        # Save SHAP summary
+        shap_summary_path = shap_dir / 'shap_summary.json'
+        shap_summary_to_save = {
+            'base_value': float(shap_summary['base_value']),
+            'feature_names': shap_summary['feature_names'],
+            'model_type': shap_summary['model_type'],
+            'quantile': shap_summary['quantile'],
+            'sample_size': len(shap_summary['shap_values']),
+        }
+        with open(shap_summary_path, 'w') as f:
+            json.dump(shap_summary_to_save, f, indent=4)
+        logger.info(f"SHAP summary saved to: {shap_summary_path}")
+    
+    # Print metrics
+    logger.info("=" * 70)
+    logger.info("PREDICTION METRICS")
+    logger.info("=" * 70)
+    for key, value in metrics.items():
+        logger.info(f"  {key}: {value:.4f}")
+    
+    logger.info("=" * 70)
+    logger.info("PREDICTION PIPELINE COMPLETE")
+    logger.info("=" * 70)
+
+
+if __name__ == "__main__":
+    main()

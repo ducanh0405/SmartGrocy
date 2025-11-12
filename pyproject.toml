@@ -86,7 +86,6 @@ module = [
     "numpy.*",
     "sklearn.*",
     "lightgbm.*",
-    "xgboost.*",
     "joblib.*",
     "scipy.*",
 ]

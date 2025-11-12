@@ -1,0 +1,22 @@
+{
+    "base_value": 0.0,
+    "feature_names": [
+        "sales_quantity_lag_1",
+        "sales_quantity_lag_24",
+        "sales_quantity_lag_48",
+        "sales_quantity_lag_168",
+        "hour_of_day",
+        "day_of_week",
+        "is_morning_peak",
+        "is_evening_peak",
+        "is_weekend",
+        "hour_sin",
+        "hour_cos",
+        "dow_sin",
+        "dow_cos",
+        "latent_demand"
+    ],
+    "model_type": "lightgbm",
+    "quantile": 0.5,
+    "sample_size": 1000
+}
