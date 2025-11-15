@@ -20,6 +20,17 @@ Date: 2025-11-15
 """
 
 __version__ = "1.0.0"
+
+# Import all modules for easy access
+try:
+    from src.modules.inventory_optimization import InventoryOptimizer
+    from src.modules.dynamic_pricing import DynamicPricingEngine
+    from src.modules.llm_insights import LLMInsightGenerator
+except ImportError as e:
+    # Gracefully handle import errors (e.g., missing dependencies)
+    import logging
+    logging.getLogger(__name__).warning(f"Some modules could not be imported: {e}")
+
 __all__ = [
     "InventoryOptimizer",
     "DynamicPricingEngine", 
