@@ -33,6 +33,7 @@ OUTPUT_FILES = {
     'reports_dir': DATA_DIRS['reports'],
     'dashboard_dir': DATA_DIRS['reports'] / 'dashboard',
     'predictions_test': DATA_DIRS['reports'] / 'predictions_test_set.csv',
+    'predictions_test_parquet': DATA_DIRS['reports'] / 'predictions_test_set.parquet',
     'shap_values_dir': DATA_DIRS['reports'] / 'shap_values',
     'dashboard_html': DATA_DIRS['reports'] / 'dashboard' / 'forecast_dashboard.html',
 }

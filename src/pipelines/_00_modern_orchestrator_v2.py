@@ -32,8 +32,8 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 try:
-    from prefect import flow, task
-    from prefect.logging import get_run_logger
+    from prefect import flow, task  # pyright: ignore[reportMissingImports]
+    from prefect.logging import get_run_logger  # pyright: ignore[reportMissingImports]
     PREFECT_AVAILABLE = True
 except ImportError:
     PREFECT_AVAILABLE = False
@@ -427,6 +427,157 @@ def train_models_task(
         raise
 
 
+def generate_quality_summary(report_path: Path, data_docs_path: Path) -> None:
+    """
+    Generate comprehensive quality summary report.
+    
+    Args:
+        report_path: Path to save the summary report
+        data_docs_path: Path to GX data docs
+    """
+    import json
+    
+    report_lines = []
+    report_lines.append("SmartGrocy Data Quality & Performance Report")
+    report_lines.append("=" * 70)
+    report_lines.append(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+    
+    # 1. Model Performance Metrics
+    report_lines.append("📊 MODEL PERFORMANCE METRICS")
+    report_lines.append("-" * 70)
+    model_metrics_path = OUTPUT_FILES['model_metrics']
+    if model_metrics_path.exists():
+        try:
+            with open(model_metrics_path, 'r') as f:
+                metrics = json.load(f)
+            
+            # R² Score
+            r2 = metrics.get('r2_score', 'N/A')
+            report_lines.append(f"R² Score: {r2:.4f}" if isinstance(r2, (int, float)) else f"R² Score: {r2}")
+            
+            # Coverage
+            coverage = metrics.get('coverage_90%', 'N/A')
+            report_lines.append(f"Coverage (90%): {coverage:.2%}" if isinstance(coverage, (int, float)) else f"Coverage (90%): {coverage}")
+            
+            # MAE và RMSE cho Q50
+            q50_mae = metrics.get('q50_mae', 'N/A')
+            q50_rmse = metrics.get('q50_rmse', 'N/A')
+            report_lines.append(f"MAE (Q50): {q50_mae:.4f}" if isinstance(q50_mae, (int, float)) else f"MAE (Q50): {q50_mae}")
+            report_lines.append(f"RMSE (Q50): {q50_rmse:.4f}" if isinstance(q50_rmse, (int, float)) else f"RMSE (Q50): {q50_rmse}")
+            
+            # MAPE với cảnh báo
+            q50_mape = metrics.get('q50_mape')
+            if q50_mape is not None:
+                if isinstance(q50_mape, (int, float)) and q50_mape < 1000:  # MAPE hợp lý
+                    report_lines.append(f"MAPE (Q50): {q50_mape:.2f}%")
+                else:
+                    mape_valid = metrics.get('q50_mape_valid_samples', 'N/A')
+                    mape_total = metrics.get('q50_mape_total_samples', 'N/A')
+                    report_lines.append(f"MAPE (Q50): Calculated with threshold (valid: {mape_valid}/{mape_total} samples)")
+            else:
+                report_lines.append("MAPE (Q50): Not calculated (insufficient valid samples)")
+            
+            report_lines.append("")
+        except Exception as e:
+            report_lines.append(f"⚠️ Could not load model metrics: {e}\n")
+    else:
+        report_lines.append("⚠️ Model metrics not found\n")
+    
+    # 2. Business Impact Metrics
+    report_lines.append("💼 BUSINESS IMPACT METRICS")
+    report_lines.append("-" * 70)
+    business_report_path = OUTPUT_FILES['reports_dir'] / 'business_report_detailed.csv'
+    if business_report_path.exists():
+        try:
+            df_business = pd.read_csv(business_report_path)
+            for _, row in df_business.iterrows():
+                if row['status'] == '✅':
+                    value = row['value']
+                    unit = row['unit']
+                    if unit == 'ratio':
+                        report_lines.append(f"{row['metric']}: {value:.4f}")
+                    elif unit == 'percentage':
+                        report_lines.append(f"{row['metric']}: {value:.2f}%")
+                    elif unit == 'count':
+                        report_lines.append(f"{row['metric']}: {int(value)}")
+                    else:
+                        report_lines.append(f"{row['metric']}: {value:.2f} {unit}")
+            report_lines.append("")
+        except Exception as e:
+            report_lines.append(f"⚠️ Could not load business metrics: {e}\n")
+    else:
+        report_lines.append("⚠️ Business report not found\n")
+    
+    # 3. Data Quality Status
+    report_lines.append("🔍 DATA QUALITY STATUS")
+    report_lines.append("-" * 70)
+    validation_path = OUTPUT_FILES['reports_dir'] / 'metrics' / 'master_table_validation.json'
+    if validation_path.exists():
+        try:
+            with open(validation_path, 'r') as f:
+                validation = json.load(f)
+            
+            quality_score = validation.get('quality_score', 'N/A')
+            passed = validation.get('passed', False)
+            
+            report_lines.append(f"Quality Score: {quality_score}/100")
+            report_lines.append(f"Validation Status: {'✅ PASSED' if passed else '⚠️ FAILED (see issues below)'}")
+            
+            issues = validation.get('issues', [])
+            if issues:
+                report_lines.append("\nIssues:")
+                for issue in issues[:5]:  # Show first 5 issues
+                    report_lines.append(f"  • {issue}")
+                if len(issues) > 5:
+                    report_lines.append(f"  ... and {len(issues) - 5} more issues")
+            
+            # Missing values summary
+            missing = validation.get('missing_values', {})
+            if missing and 'percentages' in missing:
+                high_missing = {k: v for k, v in missing['percentages'].items() if v > 50}
+                if high_missing:
+                    report_lines.append(f"\nHigh missing values (>50%): {len(high_missing)} columns")
+                    report_lines.append("  (This is expected for lag features at the start of time series)")
+            
+            report_lines.append("")
+        except Exception as e:
+            report_lines.append(f"⚠️ Could not load validation data: {e}\n")
+    else:
+        report_lines.append("⚠️ Validation data not found\n")
+    
+    # 4. File Sizes & Storage
+    report_lines.append("💾 STORAGE INFORMATION")
+    report_lines.append("-" * 70)
+    
+    predictions_csv = OUTPUT_FILES['predictions_test']
+    predictions_parquet = predictions_csv.with_suffix('.parquet')
+    
+    if predictions_parquet.exists():
+        size_mb = predictions_parquet.stat().st_size / 1024 / 1024
+        report_lines.append(f"Predictions (Parquet): {size_mb:.2f} MB ✓ Recommended format")
+    if predictions_csv.exists():
+        size_mb = predictions_csv.stat().st_size / 1024 / 1024
+        report_lines.append(f"Predictions (CSV): {size_mb:.2f} MB")
+    report_lines.append("")
+    
+    # 5. Links to Detailed Reports
+    report_lines.append("📄 DETAILED REPORTS")
+    report_lines.append("-" * 70)
+    if data_docs_path.exists():
+        report_lines.append(f"GX Data Docs: {data_docs_path}")
+    else:
+        report_lines.append("GX Data Docs: Not generated (run: python scripts/setup_great_expectations.py)")
+    
+    report_lines.append(f"Model Metrics: {OUTPUT_FILES['model_metrics']}")
+    report_lines.append(f"Business Report: {OUTPUT_FILES['reports_dir'] / 'business_report_detailed.csv'}")
+    report_lines.append(f"Dashboard: {OUTPUT_FILES['dashboard_html']}")
+    report_lines.append("")
+    
+    # Write report
+    with open(report_path, 'w', encoding='utf-8') as f:
+        f.write('\n'.join(report_lines))
+
+
 @task(name="generate_quality_report")
 def generate_quality_report_task():
     """
@@ -448,14 +599,9 @@ def generate_quality_report_task():
             logger.warning("⚠️ GX Data Docs not generated")
             logger.warning("  Run: python scripts/setup_great_expectations.py")
         
-        # Generate summary report
+        # Generate comprehensive summary report
         report_path = OUTPUT_FILES['reports_dir'] / 'quality_summary.txt'
-        with open(report_path, 'w') as f:
-            f.write(f"SmartGrocy Data Quality Report\n")
-            f.write(f"{'='*70}\n")
-            f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
-            f.write(f"GX Data Docs: {data_docs_path}\n")
-            f.write(f"\nValidation Status: See GX reports for details\n")
+        generate_quality_summary(report_path, data_docs_path)
         
         logger.info(f"✓ Summary report: {report_path}")
         logger.info("✓ Stage 5 complete")

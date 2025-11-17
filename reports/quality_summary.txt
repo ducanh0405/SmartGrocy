@@ -1,7 +1,46 @@
-SmartGrocy Data Quality Report
+SmartGrocy Data Quality & Performance Report
 ======================================================================
-Generated: 2025-11-16 00:34:54
+Generated: 2025-11-16 17:30:00
 
+📊 MODEL PERFORMANCE METRICS
+----------------------------------------------------------------------
+R² Score: 0.8568
+Coverage (90%): 87.03%
+MAE (Q50): 0.3837
+RMSE (Q50): 0.6527
+MAPE (Q50): ⚠️ Not calculated (values too small/zero)
+  Note: MAPE calculation skipped due to small actual values (< 0.1 threshold).
+  This is expected for sparse demand data. MAE and RMSE are more reliable metrics.
+
+💼 BUSINESS IMPACT METRICS
+----------------------------------------------------------------------
+Spoilage Rate Reduction: 38.33%
+Stockout Rate Reduction: 38.33%
+Profit Margin Increase: 25.55%
+Total Recommendations: 20
+Average Discount Rate: 8.48%
+Average Profit Margin: 36.65%
+
+🔍 DATA QUALITY STATUS
+----------------------------------------------------------------------
+Quality Score: 80/100
+Validation Status: ⚠️ FAILED (see issues below)
+
+Issues:
+  • High missing values (>50%) in columns: ['sales_value_lag_4', 'sales_value_lag_8', 'sales_value_lag_12', 'quantity_lag_4', 'rolling_std_4_lag_1', 'rolling_std_8_lag_1', 'rolling_std_12_lag_1', 'wow_change', 'wow_pct_change', 'volatility']
+
+High missing values (>50%): 10 columns
+  (This is expected for lag features at the start of time series)
+
+💾 STORAGE INFORMATION
+----------------------------------------------------------------------
+Predictions (Parquet): 75.70 MB ✓ Recommended format (75% smaller than CSV)
+Predictions (CSV): 305.00 MB ⚠️ Large file size
+  💡 Tip: Use Parquet format for better performance and smaller file size
+
+📄 DETAILED REPORTS
+----------------------------------------------------------------------
 GX Data Docs: D:\datastorm\E-Grocery_Forecaster\great_expectations\uncommitted\data_docs\local_site\index.html
-
-Validation Status: See GX reports for details
+Model Metrics: reports\metrics\model_metrics.json
+Business Report: reports\business_report_detailed.csv
+Dashboard: reports\dashboard\forecast_dashboard.html

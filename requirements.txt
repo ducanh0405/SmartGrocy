@@ -65,6 +65,10 @@ circuitbreaker>=2.0.0,<3.0
 # Alerting and notifications
 slack-sdk>=3.33.0,<4.0
 
+# LLM and AI
+google-generativeai==0.8.3
+python-dotenv==1.0.1
+
 # Other dependencies
 haversine>=2.7.0,<3.0
 colorlog>=6.7.0,<7.0

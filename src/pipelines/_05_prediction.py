@@ -380,9 +380,22 @@ def evaluate_predictions(predictions: pd.DataFrame, y_true: pd.Series,
             rmse = np.sqrt(mean_squared_error(y_true, y_pred))
             metrics[f'q{int(quantile*100):02d}_rmse'] = rmse
             
-            # MAPE
-            mape = mean_absolute_percentage_error(y_true, y_pred)
-            metrics[f'q{int(quantile*100):02d}_mape'] = mape
+            # MAPE với threshold để tránh chia cho 0 hoặc giá trị quá nhỏ
+            # Chỉ tính MAPE cho các giá trị > threshold (default: 0.1)
+            threshold = 0.1
+            valid_mask = y_true > threshold
+            if valid_mask.sum() > 0:
+                mape = mean_absolute_percentage_error(
+                    y_true[valid_mask], y_pred[valid_mask]
+                )
+                metrics[f'q{int(quantile*100):02d}_mape'] = mape
+                metrics[f'q{int(quantile*100):02d}_mape_valid_samples'] = int(valid_mask.sum())
+                metrics[f'q{int(quantile*100):02d}_mape_total_samples'] = len(y_true)
+            else:
+                # Nếu không có giá trị hợp lệ, set MAPE = None và cảnh báo
+                metrics[f'q{int(quantile*100):02d}_mape'] = None
+                metrics[f'q{int(quantile*100):02d}_mape_warning'] = 'No valid samples for MAPE calculation (all values <= threshold)'
+                logger.warning(f"MAPE không thể tính cho quantile {quantile}: không có giá trị > {threshold}")
     
     # Coverage
     if len(quantiles) >= 2:
@@ -459,10 +472,23 @@ def main():
     logger.info("Evaluating predictions...")
     metrics = evaluate_predictions(predictions, y_test, TRAINING_CONFIG['quantiles'])
     
-    # Save predictions
-    predictions_path = OUTPUT_FILES['predictions_test']
-    predictions.to_csv(predictions_path, index=False)
-    logger.info(f"Predictions saved to: {predictions_path}")
+    # Save predictions - tối ưu: lưu cả Parquet (nhỏ hơn) và CSV compressed
+    predictions_path_csv = OUTPUT_FILES['predictions_test']
+    predictions_path_parquet = predictions_path_csv.with_suffix('.parquet')
+    
+    # Lưu Parquet (format tối ưu, nhỏ hơn nhiều)
+    predictions.to_parquet(predictions_path_parquet, index=False, compression='snappy')
+    logger.info(f"Predictions saved to Parquet: {predictions_path_parquet} ({predictions_path_parquet.stat().st_size / 1024 / 1024:.2f} MB)")
+    
+    # Lưu CSV với compression (cho compatibility)
+    # Note: compression='gzip' sẽ tự động tạo file .csv.gz
+    predictions.to_csv(predictions_path_csv, index=False, compression='gzip')
+    csv_gz_path = Path(str(predictions_path_csv) + '.gz')
+    csv_size = csv_gz_path.stat().st_size / 1024 / 1024 if csv_gz_path.exists() else 0
+    logger.info(f"Predictions saved to CSV (gzip): {csv_gz_path} ({csv_size:.2f} MB)")
+    
+    # Lưu CSV không nén (nếu cần cho compatibility)
+    # predictions.to_csv(predictions_path_csv, index=False)
     
     # Save metrics
     metrics_path = OUTPUT_FILES['model_metrics']

@@ -4,37 +4,58 @@ Module 4: LLM Insights Generator
 =================================
 
 LLM-powered insight generation for demand forecasts and business decisions.
+Integrates results from Modules 1 (Forecasting), 2 (Inventory), and 3 (Pricing).
 
 Capabilities:
 - Interpret SHAP values and feature importance
 - Generate causal explanations for demand changes
 - Provide actionable recommendations
-- Summarize forecast trends
-- Detect anomalies and alert
+- Synthesize insights from all three business modules
+- Support Gemini API with .env configuration
 
 Framework: Causal → Impact → Action
 
 Author: SmartGrocy Team
-Date: 2025-11-15
+Date: 2025-11-16
 """
 
 import pandas as pd
 import numpy as np
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 import logging
 import json
+import os
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+# Try to load dotenv for .env file support
+# Note: If .env file has encoding issues, API keys can still be set via environment variables
+try:
+    from dotenv import load_dotenv
+    try:
+        # Try to load .env file
+        # If it fails due to encoding issues (e.g., UTF-16), we'll continue without it
+        # API keys can be set directly via environment variables (e.g., $env:GEMINI_API_KEY)
+        load_dotenv()
+    except (UnicodeDecodeError, Exception):
+        # Silently continue if .env file can't be loaded due to encoding or other issues
+        # This allows the module to work even if .env has encoding problems
+        # Users can set API keys via environment variables instead
+        pass
+except ImportError:
+    # If python-dotenv not installed, continue without it
+    pass
 
 
 @dataclass
 class InsightConfig:
     """Configuration for insight generation."""
-    use_llm_api: bool = False  # Set True to use actual LLM API
-    api_provider: str = "openai"  # openai, anthropic, local
-    api_key: Optional[str] = None
-    model: str = "gpt-4"
+    use_llm_api: bool = True  # Default to True, will auto-detect API key
+    api_provider: str = "gemini"  # gemini, openai, anthropic
+    api_key: Optional[str] = None  # Will load from env if None
+    model: str = "gemini-2.0-flash-exp"  # Default Gemini model
     template_style: str = "bullet"  # bullet, paragraph, table
 
 
@@ -44,22 +65,102 @@ class LLMInsightGenerator:
     
     Can work in two modes:
     1. Rule-based (no API) - Template-based insights
-    2. LLM-powered (with API) - Advanced interpretations
+    2. LLM-powered (with API) - Advanced interpretations using Gemini
+    
+    Supports integration with Modules 1, 2, and 3.
     """
     
-    def __init__(self, config: Optional[InsightConfig] = None):
+    def __init__(
+        self,
+        config: Optional[InsightConfig] = None,
+        use_llm_api: Optional[bool] = None,
+        api_key: Optional[str] = None,
+        api_provider: str = "gemini",
+        model: str = "gemini-2.0-flash-exp"
+    ):
+        """
+        Initialize LLM Insight Generator.
+        
+        Args:
+            config: InsightConfig object (uses defaults if None)
+            use_llm_api: Override config.use_llm_api
+            api_key: Override API key (will check env vars if None)
+            api_provider: API provider name
+            model: Model name
+        """
         self.config = config or InsightConfig()
-        logger.info(f"LLM Insight Generator initialized (API: {self.config.use_llm_api})")
+        
+        # Override config with direct parameters if provided
+        if use_llm_api is not None:
+            self.config.use_llm_api = use_llm_api
+        if api_key is not None:
+            self.config.api_key = api_key
+        if api_provider:
+            self.config.api_provider = api_provider
+        if model:
+            self.config.model = model
+        
+        # Load API key from environment if not provided
+        if self.config.api_key is None:
+            if self.config.api_provider == "gemini":
+                self.config.api_key = os.getenv('GEMINI_API_KEY')
+            elif self.config.api_provider == "openai":
+                self.config.api_key = os.getenv('OPENAI_API_KEY')
+            elif self.config.api_provider == "anthropic":
+                self.config.api_key = os.getenv('ANTHROPIC_API_KEY')
+        
+        # Auto-detect if API should be used
+        if self.config.use_llm_api and self.config.api_key:
+            logger.info(f"LLM Insight Generator initialized with {self.config.api_provider} API")
+            logger.info(f"Model: {self.config.model}")
+        else:
+            self.config.use_llm_api = False
+            logger.info("LLM Insight Generator initialized (rule-based mode)")
+    
+    def generate_comprehensive_insight(
+        self,
+        product_id: str,
+        forecast_data: Dict,  # Module 1 results
+        inventory_data: Dict,  # Module 2 results
+        pricing_data: Dict,  # Module 3 results
+        shap_values: Optional[Dict] = None,
+        use_llm: Optional[bool] = None
+    ) -> Dict:
+        """
+        Generate comprehensive insight combining all three modules.
+        
+        Args:
+            product_id: Product identifier
+            forecast_data: Module 1 - Demand forecasting results
+            inventory_data: Module 2 - Inventory optimization results
+            pricing_data: Module 3 - Dynamic pricing results
+            shap_values: Top SHAP contributors (optional)
+            use_llm: Force LLM mode (overrides config)
+        
+        Returns:
+            Dictionary with insight sections
+        """
+        use_llm = use_llm if use_llm is not None else self.config.use_llm_api
+        
+        if use_llm and self.config.api_key:
+            return self._generate_llm_insight_comprehensive(
+                product_id, forecast_data, inventory_data, pricing_data, shap_values
+            )
+        else:
+            return self._generate_rule_based_insight_comprehensive(
+                product_id, forecast_data, inventory_data, pricing_data, shap_values
+            )
     
     def generate_forecast_insight(
         self,
         product_id: str,
         forecast_data: Dict,
         shap_values: Optional[Dict] = None,
-        historical_data: Optional[Dict] = None
-    ) -> Dict[str, str]:
+        historical_data: Optional[Dict] = None,
+        use_llm: Optional[bool] = None
+    ) -> Dict:
         """
-        Generate insight for a forecast.
+        Generate insight for a forecast (backward compatibility).
         
         Args:
             product_id: Product identifier
@@ -69,43 +170,373 @@ class LLMInsightGenerator:
                 - trend: up/down/stable
             shap_values: Top SHAP contributors (optional)
             historical_data: Historical context (optional)
+            use_llm: Force LLM mode
         
         Returns:
             Dictionary with insight sections
         """
-        if self.config.use_llm_api and self.config.api_key:
-            return self._generate_llm_insight(
-                product_id, forecast_data, shap_values, historical_data
-            )
-        else:
-            return self._generate_rule_based_insight(
-                product_id, forecast_data, shap_values, historical_data
-            )
+        use_llm = use_llm if use_llm is not None else self.config.use_llm_api
+        
+        # Create dummy inventory and pricing data for backward compatibility
+        inventory_data = {
+            'current_inventory': forecast_data.get('current_inventory', 0),
+            'safety_stock': forecast_data.get('safety_stock', 0),
+            'reorder_point': forecast_data.get('reorder_point', 0),
+            'should_reorder': forecast_data.get('should_reorder', False)
+        }
+        
+        pricing_data = {
+            'current_price': forecast_data.get('current_price', 0),
+            'recommended_price': forecast_data.get('recommended_price', 0),
+            'discount_pct': forecast_data.get('discount_pct', 0)
+        }
+        
+        return self.generate_comprehensive_insight(
+            product_id, forecast_data, inventory_data, pricing_data, shap_values, use_llm
+        )
     
-    def _generate_rule_based_insight(
+    def _generate_llm_insight_comprehensive(
         self,
         product_id: str,
         forecast_data: Dict,
-        shap_values: Optional[Dict],
-        historical_data: Optional[Dict]
-    ) -> Dict[str, str]:
-        """
-        Generate insight using rule-based templates (no API needed).
-        """
-        q50 = forecast_data.get('q50', 0)
-        trend = forecast_data.get('trend', 'stable')
+        inventory_data: Dict,
+        pricing_data: Dict,
+        shap_values: Optional[Dict]
+    ) -> Dict:
+        """Generate insight using LLM API (Gemini)."""
+        try:
+            # Import Gemini
+            import google.generativeai as genai
+            
+            # Configure API
+            genai.configure(api_key=self.config.api_key)
+            
+            # Get model
+            model = genai.GenerativeModel(self.config.model)
+            
+            # Format prompt
+            prompt = self._format_comprehensive_prompt(
+                product_id, forecast_data, inventory_data, pricing_data, shap_values
+            )
+            
+            logger.info(f"Calling {self.config.api_provider} API for insight generation...")
+            
+            # Generate content
+            response = model.generate_content(prompt)
+            
+            insight_text = response.text
+            
+            return {
+                'product_id': product_id,
+                'insight_text': insight_text,
+                'insight': insight_text,  # Backward compatibility
+                'method': 'llm',
+                'provider': self.config.api_provider,
+                'model': self.config.model,
+                'confidence': 0.85,  # LLM insights have high confidence
+                'generated_by': 'llm_api'
+            }
+            
+        except ImportError:
+            logger.error("google-generativeai not installed. Install with: pip install google-generativeai")
+            logger.warning("Falling back to rule-based mode")
+            return self._generate_rule_based_insight_comprehensive(
+                product_id, forecast_data, inventory_data, pricing_data, shap_values
+            )
+        except Exception as e:
+            logger.error(f"LLM API call failed: {e}")
+            logger.warning("Falling back to rule-based mode")
+            return self._generate_rule_based_insight_comprehensive(
+                product_id, forecast_data, inventory_data, pricing_data, shap_values
+            )
+    
+    def _format_comprehensive_prompt(
+        self,
+        product_id: str,
+        forecast_data: Dict,
+        inventory_data: Dict,
+        pricing_data: Dict,
+        shap_values: Optional[Dict]
+    ) -> str:
+        """Format comprehensive prompt using template from llm_prompts.py"""
+        try:
+            from src.modules.llm_prompts import FORECAST_INSIGHT_PROMPT_V2
+            prompt_template = FORECAST_INSIGHT_PROMPT_V2
+        except ImportError:
+            logger.warning("Could not import prompt template, using basic prompt")
+            return self._build_basic_prompt(product_id, forecast_data, inventory_data, pricing_data, shap_values)
         
-        # Determine cause
+        # Extract SHAP top features
+        top_shap = self._extract_top_shap_features(shap_values)
+        
+        # Calculate derived metrics
+        q50 = forecast_data.get('q50', forecast_data.get('forecast_q50', 0))
+        q05 = forecast_data.get('q05', forecast_data.get('forecast_q05', 0))
+        q95 = forecast_data.get('q95', forecast_data.get('forecast_q95', 0))
+        
+        uncertainty = q95 - q50
+        uncertainty_pct = (uncertainty / q50 * 100) if q50 > 0 else 0
+        
+        # Format prompt with all placeholders
+        prompt = prompt_template.format(
+            # Product info
+            product_id=product_id,
+            category=forecast_data.get('category', 'Unknown'),
+            store_id=forecast_data.get('store_id', 'Unknown'),
+            forecast_date=forecast_data.get('date', forecast_data.get('forecast_date', 'Unknown')),
+            horizon=forecast_data.get('horizon', '24 hours'),
+            
+            # Module 1: Forecasting
+            q50=q50,
+            q05=q05,
+            q95=q95,
+            uncertainty=uncertainty,
+            uncertainty_pct=uncertainty_pct,
+            confidence_level=self._calculate_confidence_level(uncertainty_pct),
+            vs_yesterday=forecast_data.get('vs_yesterday', 0),
+            vs_last_week=forecast_data.get('vs_last_week', 0),
+            vs_monthly_avg=forecast_data.get('vs_monthly_avg', 0),
+            trend_icon_yesterday=self._get_trend_icon(forecast_data.get('vs_yesterday', 0)),
+            trend_icon_week=self._get_trend_icon(forecast_data.get('vs_last_week', 0)),
+            trend_icon_month=self._get_trend_icon(forecast_data.get('vs_monthly_avg', 0)),
+            trend_direction=self._get_trend_direction(forecast_data),
+            cause_1=top_shap[0]['name'],
+            impact_1=top_shap[0]['impact'],
+            cause_1_detail=top_shap[0]['detail'],
+            cause_2=top_shap[1]['name'],
+            impact_2=top_shap[1]['impact'],
+            cause_2_detail=top_shap[1]['detail'],
+            cause_3=top_shap[2]['name'],
+            impact_3=top_shap[2]['impact'],
+            cause_3_detail=top_shap[2]['detail'],
+            
+            # Module 2: Inventory
+            current_inventory=inventory_data.get('current_inventory', 0),
+            days_of_stock=self._calculate_days_of_stock(
+                inventory_data.get('current_inventory', 0), q50
+            ),
+            inventory_ratio=inventory_data.get('inventory_ratio', 1.0),
+            safety_stock=inventory_data.get('safety_stock', 0),
+            reorder_point=inventory_data.get('reorder_point', 0),
+            eoq=inventory_data.get('eoq', 0),
+            recommended_order_qty=inventory_data.get('recommended_order_qty', 0),
+            stockout_risk=self._get_risk_level(inventory_data.get('stockout_risk_pct', 0)),
+            stockout_risk_pct=inventory_data.get('stockout_risk_pct', 0),
+            stockout_status=self._get_stockout_status(inventory_data.get('stockout_risk_pct', 0)),
+            overstock_risk=self._get_risk_level(inventory_data.get('overstock_risk_pct', 0)),
+            overstock_risk_pct=inventory_data.get('overstock_risk_pct', 0),
+            overstock_status=self._get_overstock_status(inventory_data.get('overstock_risk_pct', 0)),
+            should_reorder='YES' if inventory_data.get('should_reorder', False) else 'NO',
+            reorder_reasoning=inventory_data.get('reorder_reasoning', 'No reorder needed'),
+            service_level=inventory_data.get('service_level', 0.95),
+            fill_rate=inventory_data.get('fill_rate', 0.95),
+            inventory_turnover=inventory_data.get('inventory_turnover', 12.0),
+            
+            # Module 3: Pricing
+            current_price=pricing_data.get('current_price', 0),
+            unit_cost=pricing_data.get('unit_cost', 0),
+            current_margin=self._calculate_margin(
+                pricing_data.get('current_price', 0),
+                pricing_data.get('unit_cost', 0)
+            ),
+            recommended_price=pricing_data.get('recommended_price', pricing_data.get('current_price', 0)),
+            price_change=pricing_data.get('recommended_price', 0) - pricing_data.get('current_price', 0),
+            price_change_pct=self._calculate_price_change_pct(
+                pricing_data.get('current_price', 0),
+                pricing_data.get('recommended_price', pricing_data.get('current_price', 0))
+            ),
+            discount_pct=pricing_data.get('discount_pct', 0),
+            pricing_action=pricing_data.get('action', 'maintain'),
+            pricing_reasoning=pricing_data.get('reasoning', 'No pricing change needed'),
+            pricing_impact=pricing_data.get('expected_impact', 'No significant impact expected'),
+            new_margin=self._calculate_margin(
+                pricing_data.get('recommended_price', pricing_data.get('current_price', 0)),
+                pricing_data.get('unit_cost', 0)
+            ),
+            revenue_impact=pricing_data.get('revenue_impact', 'Neutral'),
+            inventory_ratio_pricing=pricing_data.get('inventory_ratio', 1.0),
+            demand_ratio=pricing_data.get('demand_ratio', 1.0),
+            competitive_position=pricing_data.get('competitive_position', 'Normal')
+        )
+        
+        return prompt
+    
+    def _extract_top_shap_features(self, shap_values: Optional[Dict], top_n: int = 3) -> List[Dict]:
+        """Extract top N SHAP features with details."""
+        if not shap_values:
+            return [
+                {'name': 'Historical Demand Pattern', 'impact': 40.0, 'detail': 'Based on historical sales trends'},
+                {'name': 'Seasonal Factors', 'impact': 30.0, 'detail': 'Seasonal demand variations'},
+                {'name': 'Market Conditions', 'impact': 30.0, 'detail': 'General market dynamics'}
+            ]
+        
+        # Sort by absolute value
+        sorted_features = sorted(shap_values.items(), key=lambda x: abs(x[1]), reverse=True)[:top_n]
+        
+        results = []
+        total_abs = sum(abs(v) for v in shap_values.values())
+        
+        for i, (feat, val) in enumerate(sorted_features):
+            impact_pct = (abs(val) / total_abs * 100) if total_abs > 0 else 0
+            
+            # Generate detail based on feature name
+            detail = self._generate_feature_detail(feat, val)
+            
+            results.append({
+                'name': feat.replace('_', ' ').title(),
+                'impact': impact_pct,
+                'detail': detail
+            })
+        
+        # Pad if less than top_n
+        while len(results) < top_n:
+            results.append({
+                'name': f'Factor {len(results) + 1}',
+                'impact': 0.0,
+                'detail': 'No significant impact'
+            })
+        
+        return results
+    
+    def _generate_feature_detail(self, feature_name: str, shap_value: float) -> str:
+        """Generate human-readable detail for a feature."""
+        feat_lower = feature_name.lower()
+        
+        if 'promo' in feat_lower:
+            return 'Promotional activity driving demand' if shap_value > 0 else 'Lack of promotion reducing demand'
+        elif 'price' in feat_lower:
+            return 'Price changes affecting demand elasticity' if shap_value < 0 else 'Price stability supporting demand'
+        elif 'lag' in feat_lower or 'historical' in feat_lower:
+            return 'Historical demand patterns influencing forecast'
+        elif 'season' in feat_lower:
+            return 'Seasonal factors affecting demand'
+        elif 'day' in feat_lower or 'week' in feat_lower:
+            return 'Day-of-week or weekly patterns'
+        elif 'weather' in feat_lower:
+            return 'Weather conditions impacting demand'
+        else:
+            return f'Feature contributing {shap_value:.2f} to forecast'
+    
+    def _calculate_confidence_level(self, uncertainty_pct: float) -> str:
+        """Calculate confidence level based on uncertainty."""
+        if uncertainty_pct < 10:
+            return 'HIGH'
+        elif uncertainty_pct < 25:
+            return 'MODERATE'
+        else:
+            return 'LOW'
+    
+    def _get_trend_icon(self, change: float) -> str:
+        """Get trend icon based on change."""
+        if change > 5:
+            return '📈'
+        elif change < -5:
+            return '📉'
+        else:
+            return '➡️'
+    
+    def _get_trend_direction(self, forecast_data: Dict) -> str:
+        """Get trend direction."""
+        vs_yesterday = forecast_data.get('vs_yesterday', 0)
+        vs_week = forecast_data.get('vs_last_week', 0)
+        
+        if vs_yesterday > 10 or vs_week > 10:
+            return 'STRONG UPWARD'
+        elif vs_yesterday > 5 or vs_week > 5:
+            return 'UPWARD'
+        elif vs_yesterday < -10 or vs_week < -10:
+            return 'STRONG DOWNWARD'
+        elif vs_yesterday < -5 or vs_week < -5:
+            return 'DOWNWARD'
+        else:
+            return 'STABLE'
+    
+    def _calculate_days_of_stock(self, current_inventory: float, q50: float) -> float:
+        """Calculate days of stock."""
+        if q50 > 0:
+            return current_inventory / q50
+        return 0.0
+    
+    def _get_risk_level(self, risk_pct: float) -> str:
+        """Get risk level string."""
+        if risk_pct >= 70:
+            return 'CRITICAL'
+        elif risk_pct >= 50:
+            return 'HIGH'
+        elif risk_pct >= 30:
+            return 'MODERATE'
+        else:
+            return 'LOW'
+    
+    def _get_stockout_status(self, risk_pct: float) -> str:
+        """Get stockout status."""
+        if risk_pct >= 70:
+            return 'IMMEDIATE ACTION REQUIRED'
+        elif risk_pct >= 50:
+            return 'MONITOR CLOSELY'
+        else:
+            return 'MANAGEABLE'
+    
+    def _get_overstock_status(self, risk_pct: float) -> str:
+        """Get overstock status."""
+        if risk_pct >= 60:
+            return 'URGENT CLEARANCE NEEDED'
+        elif risk_pct >= 40:
+            return 'CONSIDER MARKDOWNS'
+        else:
+            return 'ACCEPTABLE'
+    
+    def _calculate_margin(self, price: float, cost: float) -> float:
+        """Calculate profit margin."""
+        if price > 0:
+            return (price - cost) / price
+        return 0.0
+    
+    def _calculate_price_change_pct(self, old_price: float, new_price: float) -> float:
+        """Calculate price change percentage."""
+        if old_price > 0:
+            return ((new_price - old_price) / old_price) * 100
+        return 0.0
+    
+    def _build_basic_prompt(
+        self,
+        product_id: str,
+        forecast_data: Dict,
+        inventory_data: Dict,
+        pricing_data: Dict,
+        shap_values: Optional[Dict]
+    ) -> str:
+        """Build basic prompt if template not available."""
+        return f"""Analyze the following business data for product {product_id}:
+
+Forecast: {forecast_data}
+Inventory: {inventory_data}
+Pricing: {pricing_data}
+SHAP: {shap_values}
+
+Provide comprehensive business insights.
+"""
+    
+    def _generate_rule_based_insight_comprehensive(
+        self,
+        product_id: str,
+        forecast_data: Dict,
+        inventory_data: Dict,
+        pricing_data: Dict,
+        shap_values: Optional[Dict]
+    ) -> Dict:
+        """Generate rule-based insight combining all modules."""
+        q50 = forecast_data.get('q50', forecast_data.get('forecast_q50', 0))
+        
+        # Extract causes
         causes = []
         if shap_values:
             top_features = sorted(shap_values.items(), key=lambda x: abs(x[1]), reverse=True)[:3]
             for feat, val in top_features:
                 if 'promo' in feat.lower() and val > 0:
                     causes.append("Active promotional campaign")
-                elif 'price' in feat.lower() and val < 0:
-                    causes.append("Price increase reducing demand")
-                elif 'season' in feat.lower():
-                    causes.append("Seasonal demand pattern")
+                elif 'price' in feat.lower():
+                    causes.append("Price dynamics affecting demand")
                 elif 'lag' in feat.lower():
                     causes.append("Historical demand momentum")
         
@@ -113,175 +544,264 @@ class LLMInsightGenerator:
             causes = ["Normal market conditions"]
         
         # Determine impact
-        if trend == 'up':
-            impact = f"Demand forecast increased to {q50:.1f} units (strong growth trend)"
-        elif trend == 'down':
-            impact = f"Demand forecast decreased to {q50:.1f} units (declining trend)"
+        trend = self._get_trend_direction(forecast_data)
+        if 'UPWARD' in trend:
+            impact = f"Demand forecast shows growth to {q50:.1f} units"
+        elif 'DOWNWARD' in trend:
+            impact = f"Demand forecast declining to {q50:.1f} units"
         else:
             impact = f"Demand forecast stable at {q50:.1f} units"
         
-        # Determine action
-        q95 = forecast_data.get('q95', q50 * 1.5)
-        uncertainty = q95 - q50
-        
+        # Actions
         actions = []
-        if uncertainty > q50 * 0.5:  # High uncertainty
-            actions.append(f"Maintain higher safety stock due to {uncertainty/q50:.0%} forecast uncertainty")
         
-        if trend == 'up':
-            actions.append("Consider increasing order quantity to prevent stockout")
-        elif trend == 'down':
-            actions.append("Monitor inventory levels and consider markdown pricing if needed")
+        # Inventory actions
+        stockout_risk = inventory_data.get('stockout_risk_pct', 0)
+        overstock_risk = inventory_data.get('overstock_risk_pct', 0)
+        
+        if stockout_risk > 50:
+            actions.append(f"URGENT: Reorder immediately (stockout risk: {stockout_risk:.0f}%)")
+        elif inventory_data.get('should_reorder', False):
+            actions.append("HIGH: Place reorder to maintain service level")
+        
+        if overstock_risk > 50:
+            actions.append(f"URGENT: Apply markdown pricing (overstock risk: {overstock_risk:.0f}%)")
+        
+        # Pricing actions
+        pricing_action = pricing_data.get('action', 'maintain')
+        if pricing_action != 'maintain':
+            discount = pricing_data.get('discount_pct', 0)
+            actions.append(f"HIGH: Adjust pricing ({pricing_action}, {discount:.1%} discount)")
         
         if not actions:
-            actions = ["Continue with current inventory policy"]
+            actions = ["MEDIUM: Continue monitoring current strategy"]
         
-        # Format based on template style
-        if self.config.template_style == "bullet":
-            insight_text = f"""**Forecast Insight for {product_id}**
+        # Format insight
+        insight_text = f"""## 📊 EXECUTIVE SUMMARY
 
-**Cause:**
+Demand forecast for {product_id} is **{q50:.1f} units** with **{trend.lower()}** trend. 
+Current inventory: {inventory_data.get('current_inventory', 0):.0f} units.
+
+## 🔍 CAUSAL FACTORS
+
 {chr(10).join('- ' + c for c in causes)}
 
-**Impact:**
-- {impact}
+## 📈 BUSINESS IMPACT
 
-**Recommended Actions:**
+- **Forecast**: {impact}
+- **Inventory Status**: {inventory_data.get('current_inventory', 0):.0f} units
+- **Stockout Risk**: {stockout_risk:.0f}%
+- **Overstock Risk**: {overstock_risk:.0f}%
+
+## ✅ RECOMMENDED ACTIONS
+
 {chr(10).join('- ' + a for a in actions)}
 """
-        elif self.config.template_style == "paragraph":
-            insight_text = f"""For product {product_id}, the demand is influenced by {', '.join(causes).lower()}. {impact}. To optimize inventory, {' '.join(actions).lower()}."""
-        else:  # table
-            insight_text = json.dumps({
-                "product_id": product_id,
-                "cause": causes,
-                "impact": impact,
-                "actions": actions
-            }, indent=2)
         
         return {
             'product_id': product_id,
+            'insight_text': insight_text,
             'insight': insight_text,
             'causes': causes,
             'impact': impact,
             'actions': actions,
+            'method': 'rule_based',
+            'confidence': 0.70,
             'generated_by': 'rule_based'
         }
     
-    def _generate_llm_insight(
+    def batch_generate_comprehensive(
         self,
-        product_id: str,
-        forecast_data: Dict,
-        shap_values: Optional[Dict],
-        historical_data: Optional[Dict]
-    ) -> Dict[str, str]:
-        """
-        Generate insight using LLM API (OpenAI/Anthropic).
-        
-        Note: Requires API key to be configured.
-        """
-        # Prepare prompt
-        prompt = self._build_insight_prompt(
-            product_id, forecast_data, shap_values, historical_data
-        )
-        
-        try:
-            # Call LLM API (placeholder - implement when API key available)
-            logger.info("Calling LLM API for insight generation...")
-            
-            # TODO: Implement actual API call
-            # if self.config.api_provider == "openai":
-            #     response = openai.ChatCompletion.create(...)
-            # elif self.config.api_provider == "anthropic":
-            #     response = anthropic.messages.create(...)
-            
-            # For now, fallback to rule-based
-            logger.warning("LLM API not configured, using rule-based fallback")
-            return self._generate_rule_based_insight(
-                product_id, forecast_data, shap_values, historical_data
-            )
-            
-        except Exception as e:
-            logger.error(f"LLM API call failed: {e}")
-            return self._generate_rule_based_insight(
-                product_id, forecast_data, shap_values, historical_data
-            )
-    
-    def _build_insight_prompt(
-        self,
-        product_id: str,
-        forecast_data: Dict,
-        shap_values: Optional[Dict],
-        historical_data: Optional[Dict]
-    ) -> str:
-        """Build prompt for LLM API."""
-        prompt = f"""Analyze the following demand forecast for product {product_id}:
-
-Forecast Data:
-{json.dumps(forecast_data, indent=2)}
-
-Top Contributing Features (SHAP values):
-{json.dumps(shap_values or {}, indent=2)}
-
-Provide insight in this format:
-1. Cause: What factors are driving this forecast?
-2. Impact: What does this mean for inventory?
-3. Action: What should the operator do?
-
-Keep it concise and actionable.
-"""
-        return prompt
-    
-    def batch_generate(
-        self,
-        forecast_df: pd.DataFrame,
-        top_n: int = 10
+        forecasts_df: pd.DataFrame,
+        inventory_df: pd.DataFrame,
+        pricing_df: pd.DataFrame,
+        shap_dict: Optional[Dict[str, Dict]] = None,
+        top_n: int = 10,
+        use_llm: Optional[bool] = None
     ) -> pd.DataFrame:
         """
-        Generate insights for top N products by importance.
+        Generate comprehensive insights for top N products.
         
         Args:
-            forecast_df: Forecast results DataFrame
+            forecasts_df: Module 1 results DataFrame
+            inventory_df: Module 2 results DataFrame
+            pricing_df: Module 3 results DataFrame
+            shap_dict: Dict mapping product_id to SHAP values
             top_n: Number of products to generate insights for
+            use_llm: Force LLM mode
         
         Returns:
             DataFrame with insights
         """
-        # Sort by forecast value or volatility
-        if 'q50' in forecast_df.columns:
-            sorted_df = forecast_df.nlargest(top_n, 'q50')
+        # Determine merge keys based on available columns
+        # Check which columns are available in each dataframe
+        forecast_cols = set(forecasts_df.columns)
+        inventory_cols = set(inventory_df.columns)
+        pricing_cols = set(pricing_df.columns)
+        
+        # Determine merge keys - use store_id if available in all dataframes
+        merge_keys_inv = ['product_id']
+        merge_keys_price = ['product_id']
+        
+        if 'store_id' in forecast_cols and 'store_id' in inventory_cols:
+            merge_keys_inv.append('store_id')
+        
+        if 'store_id' in forecast_cols and 'store_id' in pricing_cols:
+            merge_keys_price.append('store_id')
+        
+        logger.debug(f"Merging inventory on: {merge_keys_inv}")
+        logger.debug(f"Merging pricing on: {merge_keys_price}")
+        
+        # Merge all dataframes
+        try:
+            merged = forecasts_df.merge(
+                inventory_df, on=merge_keys_inv, how='inner', suffixes=('', '_inv')
+            )
+            logger.debug(f"After inventory merge: {len(merged)} rows, columns: {list(merged.columns)}")
+        except KeyError as e:
+            logger.error(f"Error merging inventory data: {e}")
+            logger.error(f"Forecast columns: {list(forecasts_df.columns)}")
+            logger.error(f"Inventory columns: {list(inventory_df.columns)}")
+            raise
+        
+        # For pricing merge, use the same keys that were used for inventory merge
+        # (to maintain consistency)
+        if 'store_id' in merged.columns and 'store_id' in pricing_cols:
+            merge_keys_price_final = ['product_id', 'store_id']
         else:
-            sorted_df = forecast_df.head(top_n)
+            merge_keys_price_final = ['product_id']
+        
+        try:
+            merged = merged.merge(
+                pricing_df, on=merge_keys_price_final, how='inner', suffixes=('', '_price')
+            )
+            logger.debug(f"After pricing merge: {len(merged)} rows, columns: {list(merged.columns)}")
+        except KeyError as e:
+            logger.error(f"Error merging pricing data: {e}")
+            logger.error(f"Merged columns: {list(merged.columns)}")
+            logger.error(f"Pricing columns: {list(pricing_df.columns)}")
+            raise
+        
+        if len(merged) == 0:
+            logger.warning("No records after merging all dataframes. Check if product_id matches.")
+            return pd.DataFrame()
+        
+        # Sort by forecast value or importance
+        if 'forecast_q50' in merged.columns:
+            sorted_df = merged.nlargest(top_n, 'forecast_q50')
+        elif 'q50' in merged.columns:
+            sorted_df = merged.nlargest(top_n, 'q50')
+        else:
+            sorted_df = merged.head(top_n)
         
         insights = []
         for _, row in sorted_df.iterrows():
+            product_id = row['product_id']
+            
+            # Extract data for each module
             forecast_data = {
-                'q50': row.get('q50', row.get('forecast', 0)),
-                'q05': row.get('q05', 0),
-                'q95': row.get('q95', 0),
-                'trend': row.get('trend', 'stable')
+                'q50': row.get('forecast_q50', row.get('q50', 0)),
+                'q05': row.get('forecast_q05', row.get('q05', 0)),
+                'q95': row.get('forecast_q95', row.get('q95', 0)),
+                'category': row.get('category', 'Unknown'),
+                'store_id': row.get('store_id', 'Unknown'),
+                'vs_yesterday': row.get('vs_yesterday', 0),
+                'vs_last_week': row.get('vs_last_week', 0),
+                'vs_monthly_avg': row.get('vs_monthly_avg', 0)
             }
             
-            insight = self.generate_forecast_insight(
-                product_id=row['product_id'],
-                forecast_data=forecast_data
+            inventory_data = {
+                'current_inventory': row.get('current_inventory', 0),
+                'safety_stock': row.get('safety_stock', 0),
+                'reorder_point': row.get('reorder_point', 0),
+                'should_reorder': row.get('should_reorder', False),
+                'stockout_risk_pct': row.get('stockout_risk_pct', 0),
+                'overstock_risk_pct': row.get('overstock_risk_pct', 0),
+                'inventory_ratio': row.get('inventory_ratio', 1.0)
+            }
+            
+            pricing_data = {
+                'current_price': row.get('current_price', 0),
+                'recommended_price': row.get('recommended_price', row.get('current_price', 0)),
+                'discount_pct': row.get('discount_pct', 0),
+                'action': row.get('action', 'maintain'),
+                'reasoning': row.get('reasoning', ''),
+                'unit_cost': row.get('unit_cost', 0)
+            }
+            
+            shap_values = shap_dict.get(product_id, None) if shap_dict else None
+            
+            insight = self.generate_comprehensive_insight(
+                product_id, forecast_data, inventory_data, pricing_data, shap_values, use_llm
             )
             insights.append(insight)
         
         return pd.DataFrame(insights)
 
 
+# Convenience function
+def generate_insight(
+    product_id: str,
+    forecast_data: Dict,
+    inventory_data: Dict,
+    pricing_data: Dict,
+    shap_values: Optional[Dict] = None,
+    use_llm: bool = True,
+    api_key: Optional[str] = None,
+    api_provider: str = "gemini",
+    model: str = "gemini-2.0-flash-exp"
+) -> str:
+    """
+    Convenience function to generate insight.
+    
+    Returns:
+        Insight text string
+    """
+    generator = LLMInsightGenerator(
+        use_llm_api=use_llm,
+        api_key=api_key,
+        api_provider=api_provider,
+        model=model
+    )
+    
+    result = generator.generate_comprehensive_insight(
+        product_id, forecast_data, inventory_data, pricing_data, shap_values, use_llm
+    )
+    
+    return result.get('insight_text', result.get('insight', ''))
+
+
 if __name__ == "__main__":
     # Test
     logging.basicConfig(level=logging.INFO)
     
-    generator = LLMInsightGenerator(config=InsightConfig(template_style="bullet"))
+    generator = LLMInsightGenerator()
     
     test_forecast = {
         'q50': 150,
         'q05': 100,
         'q95': 200,
-        'trend': 'up'
+        'category': 'Fresh Produce',
+        'store_id': 'S001',
+        'vs_yesterday': 15.5,
+        'vs_last_week': 8.2
+    }
+    
+    test_inventory = {
+        'current_inventory': 120,
+        'safety_stock': 30,
+        'reorder_point': 100,
+        'should_reorder': True,
+        'stockout_risk_pct': 45,
+        'overstock_risk_pct': 20
+    }
+    
+    test_pricing = {
+        'current_price': 50000,
+        'recommended_price': 45000,
+        'discount_pct': 0.10,
+        'action': 'small_discount',
+        'unit_cost': 30000
     }
     
     test_shap = {
@@ -290,14 +810,16 @@ if __name__ == "__main__":
         'day_of_week': 0.10
     }
     
-    insight = generator.generate_forecast_insight(
+    insight = generator.generate_comprehensive_insight(
         'TEST001',
         test_forecast,
+        test_inventory,
+        test_pricing,
         test_shap
     )
     
     print("\n" + "="*70)
     print("LLM INSIGHT TEST")
     print("="*70)
-    print(insight['insight'])
+    print(insight.get('insight_text', insight.get('insight', '')))
     print("\n✅ Module 4 - LLM Insights Ready")
