@@ -665,10 +665,22 @@ def main(args=None) -> None:
 
     # 6. Save
     logger.info("STEP 5: SAVE ARTIFACTS")
+
+    # Collect categorical categories for prediction compatibility
+    categorical_categories = {}
+    for col in cat_features:
+        if col in X_train.columns and hasattr(X_train[col], 'cat'):
+            categorical_categories[col] = list(X_train[col].cat.categories)
+        else:
+            # Fallback for non-categorical features that were marked as categorical
+            unique_values = X_train[col].unique() if col in X_train.columns else []
+            categorical_categories[col] = list(unique_values)
+
     # Save selected features (or all features if selection was skipped)
     final_features_config = {
         "all_features": selected_features if not args.skip_feature_selection else features,
         "categorical_features": cat_features,
+        "categorical_categories": categorical_categories,
         "quantiles": TRAINING_CONFIG['quantiles'],
         "model_types": list(all_models.keys()),
         "dataset_trained_on": config['name'],

@@ -7,7 +7,7 @@ Provides statistical profiling, drift detection, and quality dashboards.
 import json
 import logging
 from datetime import datetime
-from typing import Any
+from typing import Any, Union
 
 import numpy as np
 import pandas as pd
@@ -89,7 +89,7 @@ class DataQualityMonitor:
             logger.error(f"Great Expectations setup failed: {e}", exc_info=True)
             self.gx_context = None
 
-    def create_expectation_suite(self, df: pd.DataFrame, dataset_name: str) -> ExpectationSuite | None:
+    def create_expectation_suite(self, df: pd.DataFrame, dataset_name: str) -> Union[ExpectationSuite, None]:
         """
         Create comprehensive expectation suite for a dataset.
 

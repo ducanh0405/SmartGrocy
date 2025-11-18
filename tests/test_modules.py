@@ -59,10 +59,9 @@ def test_02_reorder_point_calculation():
         assert result['safety_stock'] > 0
 
         print(f"✓ Test 2 PASSED: ROP = {result['reorder_point']:.1f} (includes safety stock)")
-        return True
     except Exception as e:
         print(f"✗ Test 2 FAILED: {e}")
-        return False
+        raise
 
 
 def test_03_eoq_calculation():
@@ -80,10 +79,9 @@ def test_03_eoq_calculation():
         assert result['num_orders_per_year'] > 0
 
         print(f"✓ Test 3 PASSED: EOQ = {result['eoq']:.1f} units")
-        return True
     except Exception as e:
         print(f"✗ Test 3 FAILED: {e}")
-        return False
+        raise
 
 
 def test_04_pricing_engine_initialization():
@@ -93,10 +91,9 @@ def test_04_pricing_engine_initialization():
         engine = DynamicPricingEngine(config)
         assert engine.config.max_discount == 0.50
         print("✓ Test 4 PASSED: Dynamic Pricing Engine initializes correctly")
-        return True
     except Exception as e:
         print(f"✗ Test 4 FAILED: {e}")
-        return False
+        raise
 
 
 def test_05_discount_calculation_logic():
@@ -115,10 +112,9 @@ def test_05_discount_calculation_logic():
         assert action2 == 'maintain'
 
         print("✓ Test 5 PASSED: Discount logic works correctly")
-        return True
     except Exception as e:
         print(f"✗ Test 5 FAILED: {e}")
-        return False
+        raise
 
 
 def test_06_pricing_recommendation():
@@ -137,10 +133,9 @@ def test_06_pricing_recommendation():
         assert result['profit_margin'] >= 0.10  # Minimum margin maintained
 
         print(f"✓ Test 6 PASSED: Price ${result['current_price']:.2f} → ${result['recommended_price']:.2f}")
-        return True
     except Exception as e:
         print(f"✗ Test 6 FAILED: {e}")
-        return False
+        raise
 
 
 def test_07_llm_insights_initialization():
@@ -150,10 +145,9 @@ def test_07_llm_insights_initialization():
         generator = LLMInsightGenerator(config)
         assert generator.config.template_style == 'bullet'
         print("✓ Test 7 PASSED: LLM Insights Generator initializes correctly")
-        return True
     except Exception as e:
         print(f"✗ Test 7 FAILED: {e}")
-        return False
+        raise
 
 
 def test_08_rule_based_insight_generation():
@@ -176,10 +170,9 @@ def test_08_rule_based_insight_generation():
         assert len(insight['causes']) > 0
 
         print("✓ Test 8 PASSED: Insight generation works")
-        return True
     except Exception as e:
         print(f"✗ Test 8 FAILED: {e}")
-        return False
+        raise
 
 
 def test_09_backtesting_initialization():
@@ -196,10 +189,9 @@ def test_09_backtesting_initialization():
         assert backtester.config.lead_time_days > 0
 
         print("✓ Test 9 PASSED: Backtesting Framework initializes correctly")
-        return True
     except Exception as e:
         print(f"✗ Test 9 FAILED: {e}")
-        return False
+        raise
 
 
 def test_10_backtesting_simulation():
@@ -228,10 +220,9 @@ def test_10_backtesting_simulation():
         assert 'improvement_pct' in comparison.columns
 
         print("✓ Test 10 PASSED: Simulation runs and generates KPIs")
-        return True
     except Exception as e:
         print(f"✗ Test 10 FAILED: {e}")
-        return False
+        raise
 
 
 def test_11_module_integration():
@@ -266,10 +257,9 @@ def test_11_module_integration():
         assert 'recommended_price' in pricing_result.columns
 
         print("✓ Test 11 PASSED: Modules integrate correctly")
-        return True
     except Exception as e:
         print(f"✗ Test 11 FAILED: {e}")
-        return False
+        raise
 
 
 def run_all_tests():

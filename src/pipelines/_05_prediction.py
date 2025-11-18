@@ -72,6 +72,7 @@ class QuantileForecaster:
         self.models = {}  # {model_type: {quantile: model}}
         self.feature_names = None
         self.categorical_features = None
+        self.categorical_categories = {}  # Store categories for each categorical feature
         self.config = get_dataset_config()
 
         logger.info(f"Initializing QuantileForecaster with models: {self.model_types}")
@@ -95,8 +96,10 @@ class QuantileForecaster:
                 features_config = json.load(f)
                 self.feature_names = features_config.get('all_features', [])
                 self.categorical_features = features_config.get('categorical_features', [])
+                self.categorical_categories = features_config.get('categorical_categories', {})
                 logger.info(f"Loaded {len(self.feature_names)} features")
                 logger.info(f"Loaded {len(self.categorical_features)} categorical features")
+                logger.info(f"Loaded categories for {len(self.categorical_categories)} categorical features")
         else:
             logger.warning(f"Model features config not found: {features_path}")
 
@@ -156,17 +159,27 @@ class QuantileForecaster:
         numeric_features = X.select_dtypes(include=[np.number]).columns
         X[numeric_features] = X[numeric_features].fillna(0)
 
-        # Chuẩn bị categorical features
+        # Chuẩn bị categorical features với đúng categories từ training
         for col in self.categorical_features:
             if col in X.columns:
-                if X[col].dtype.name not in ['category', 'object']:
-                    X[col] = X[col].astype('category')
-                # Fill missing categories với 'Unknown'
+                # Convert to category với đúng categories từ training data nếu có
+                if col in self.categorical_categories and self.categorical_categories[col]:
+                    categories = self.categorical_categories[col]
+                    try:
+                        X.loc[:, col] = X[col].astype('category')
+                        X.loc[:, col] = X[col].cat.set_categories(categories)
+                    except ValueError:
+                        # Nếu categories không compatible, chỉ convert to category
+                        X.loc[:, col] = X[col].astype('category')
+                        logger.warning(f"Could not set categories for {col}, using default categories")
+                else:
+                    X.loc[:, col] = X[col].astype('category')
+
+                # Fill missing categories với 'Unknown' nếu có
                 if X[col].isnull().any():
-                    if hasattr(X[col], 'cat'):
-                        X[col] = X[col].cat.add_categories(['Unknown']).fillna('Unknown')
-                    else:
-                        X[col] = X[col].fillna('Unknown')
+                    if hasattr(X[col], 'cat') and 'Unknown' not in X[col].cat.categories:
+                        X.loc[:, col] = X[col].cat.add_categories(['Unknown'])
+                    X.loc[:, col] = X[col].fillna('Unknown')
 
         return X
 
