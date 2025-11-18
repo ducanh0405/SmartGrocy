@@ -28,7 +28,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 try:
-    import great_expectations as gx
+    import great_expectations as gx  # pyright: ignore[reportMissingImports]
     import pandas as pd
     import logging
     from datetime import datetime

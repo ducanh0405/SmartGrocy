@@ -26,6 +26,8 @@ from typing import Dict, Any, Optional, List
 import pandas as pd
 from datetime import datetime, timedelta
 
+from src.pipelines._00_modern_orchestrator_v2 import gx_validator  # pyright: ignore[reportMissingImports]
+
 try:
     from prefect import flow, task  # pyright: ignore[reportMissingImports]
     from prefect.logging import get_run_logger  # pyright: ignore[reportMissingImports]
@@ -138,7 +140,7 @@ def load_and_validate_data(dataset_config: Dict[str, Any]) -> Dict[str, pd.DataF
             # Enhanced GX validation (if available)
             if gx_validator:
                 try:
-                    gx_result = validate_dataframe(
+                    gx_result = validate_dataframe(  # pyright: ignore[reportUndefinedVariable]
                         df, asset_name=name, fail_on_error=False
                     )
                     if not gx_result['success']:
@@ -200,7 +202,7 @@ def create_master_dataframe(dataframes: Dict[str, pd.DataFrame],
         # Enhanced GX validation
         if gx_validator:
             try:
-                gx_result = validate_dataframe(
+                gx_result = validate_dataframe(  # pyright: ignore[reportUndefinedVariable]
                     master_df, asset_name='master_dataframe', fail_on_error=False
                 )
                 if not gx_result['success']:
@@ -307,7 +309,7 @@ def enrich_features(master_df: pd.DataFrame,
         # Enhanced GX validation
         if gx_validator:
             try:
-                gx_result = validate_dataframe(
+                gx_result = validate_dataframe(  # pyright: ignore[reportUndefinedVariable]
                     enriched_df, asset_name='enriched_features', fail_on_error=False
                 )
                 if not gx_result['success']:
