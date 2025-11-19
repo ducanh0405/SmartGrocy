@@ -1,9 +1,9 @@
 # 🚀 Quick Start Guide - SmartGrocy
 
-**Last Updated:** November 12, 2025
-**Status:** Demo-Ready with Interactive Dashboard & Modern Pipeline
-**Default Data:** POC (1% sample) with 100% PRODUCT_ID matching
-**Dashboard:** Available at reports/dashboard/index.html
+**Last Updated:** November 19, 2025
+**Status:** Production-Ready with Complete Pipeline & Documentation
+**Default Data:** Full dataset processing with comprehensive validation
+**Dashboard:** Available via `python dashboard/streamlit_app.py`
 
 ---
 
@@ -16,14 +16,14 @@ pip install -r requirements.txt
 # 2. Khởi tạo data quality monitoring
 python scripts/setup_data_quality.py
 
-# 3. Chạy pipeline hiện đại với monitoring
-python run_modern_pipeline.py
+# 3. Chạy pipeline hoàn chỉnh
+python run_end_to_end.py --full-data
 
 # 4. Giám sát chất lượng dữ liệu
-python scripts/monitor_data_quality.py
+python scripts/run_data_quality_check.py
 
 # 5. Tạo dashboard tương tác
-python scripts/create_dashboard.py
+python dashboard/streamlit_app.py
 
 # Mở dashboard: reports/dashboard/index.html
 ```
@@ -32,21 +32,21 @@ python scripts/create_dashboard.py
 
 ## 📦 SmartGrocy Features
 
-### Modern Pipeline với Data Quality Monitoring
+### Complete ML Pipeline with Business Intelligence
 
 | Component | SmartGrocy ✅ |
 |-----------|----------------|
-| **Pipeline Orchestration** | Prefect-based DAG workflow |
-| **Data Quality Monitoring** | Great Expectations + custom validations |
-| **Alerting System** | Tự động cảnh báo chất lượng dữ liệu và lỗi pipeline |
-| **Intelligent Caching** | Tối ưu hóa hiệu năng với disk-based caching |
-| **Performance Monitoring** | Theo dõi bottleneck và tối hóa tài nguyên |
-| **Drift Detection** | Phát hiện thay đổi phân phối dữ liệu theo thời gian |
+| **ML Pipeline** | Complete feature engineering → model training → prediction |
+| **Business Modules** | Inventory optimization + dynamic pricing + LLM insights |
+| **Data Processing** | Full dataset handling with validation and quality checks |
+| **Model Architecture** | 7 quantile regression models with ensemble predictions |
+| **Quality Assurance** | Comprehensive testing suite and validation |
+| **Documentation** | Complete technical and operational guides |
 | **Data Granularity** | Aggregated weekly `[PRODUCT_ID, STORE_ID, WEEK_NO]` |
-| **Missing Periods** | Zero-filled complete grid |
+| **Missing Periods** | Zero-filled complete grid for consistent analysis |
 | **Train/Test Split** | Time-based (weeks 1-83 vs 84-104) - leak-safe |
-| **Lag Features** | 100% leak-safe (on lagged series) |
-| **Model Type** | 7 quantile models (Q05/Q10/Q25/Q50/Q75/Q90/Q95) |
+| **Lag Features** | 100% leak-safe time-series features |
+| **Model Type** | LightGBM quantile models (Q05/Q25/Q50/Q75/Q95) |
 | **Evaluation Metric** | Pinball loss + Prediction Interval Coverage |
 | **Tests** | 6 smoke tests + validation script + comprehensive testing |
 | **Dev Tooling** | ruff, black, isort, mypy |
@@ -157,7 +157,7 @@ tests/test_smoke.py::test_directory_structure PASSED
 Chạy pipeline hiện đại với data quality monitoring:
 
 ```bash
-python run_modern_pipeline.py --full-data
+python run_end_to_end.py --full-data
 ```
 
 **What Happens:**
@@ -383,8 +383,8 @@ mypy src/
 ### Debug a Single Stage
 
 ```bash
-# Run modern pipeline với monitoring
-python run_modern_pipeline.py
+# Run end-to-end pipeline
+python run_end_to_end.py --full-data
 
 # Hoặc run từng stage riêng lẻ:
 # Data loading
@@ -434,11 +434,11 @@ Modern pipeline tự động detect và sử dụng full dataset:
 
 ```bash
 # Chạy trên full dataset từ data/2_raw/
-python run_modern_pipeline.py --full-data
+python run_end_to_end.py --full-data
 
 # Hoặc chỉ định rõ:
 export DATA_SOURCE=full
-python run_modern_pipeline.py --full-data
+python run_end_to_end.py --full-data
 ```
 
 **Note:** Full dataset requires 16GB+ RAM và ~45 minutes runtime với monitoring.
@@ -499,7 +499,7 @@ Before considering SmartGrocy "working", verify:
 - [ ] ✅ Data quality setup: `python scripts/setup_data_quality.py`
 - [ ] ✅ Validation script passes: `python scripts/validate_setup.py`
 - [ ] ✅ All smoke tests pass: `pytest tests/test_smoke.py -v -m smoke`
-- [ ] ✅ Modern pipeline runs: `python run_modern_pipeline.py --full-data`
+- [ ] ✅ End-to-end pipeline runs: `python run_end_to_end.py --full-data`
 - [ ] ✅ 7 model files saved: `models/q{05,10,25,50,75,90,95}_forecaster.joblib`
 - [ ] ✅ Metrics file created: `reports/metrics/quantile_model_metrics.json`
 - [ ] ✅ Ensemble predictions: `reports/ensemble_predictions.csv`

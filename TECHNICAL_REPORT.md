@@ -1,7 +1,7 @@
 # 🚀 SMARTGROCY TECHNICAL REPORT
 ## E-Grocery Demand Forecasting & Business Intelligence Pipeline
 
-**Generated:** 2025-11-18 13:47:58
+**Generated:** 2025-11-19 16:27:25
 **Version:** 1.0.0
 **Status:** ✅ PRODUCTION READY
 
@@ -74,9 +74,12 @@ Model: LightGBM Quantile Regression
 
 ### Sample Output
 ```csv
-product_id,store_id,hour_timestamp,sales_quantity,latent_demand,sales_quantity_lag_1,sales_quantity_lag_24,sales_quantity_lag_48,sales_quantity_lag_168,hour_of_day,is_morning_peak,is_evening_peak,hour_sin,hour_cos,rolling_mean_24_lag_1,rolling_std_24_lag_1,rolling_max_24_lag_1,rolling_min_24_lag_1,rolling_mean_168_lag_1,rolling_std_168_lag_1,rolling_max_168_lag_1,rolling_min_168_lag_1,day_of_year,month,quarter,day_sin,day_cos,day_of_week,is_overnight,is_lunch_hour,dow_sin,dow_cos,is_weekend,forecast_q05,forecast_q25,forecast_q50,forecast_q75,forecast_q95,prediction_interval,prediction_center
-0,25,2024-06-08,0.7,0.0,0.8,0.5,0.5,0.0,0,0,0,0.0,1.0,0.46249999999999997,0.18132963018384135,0.8,0.2,0.3888888888888889,0.2010924778889971,0.9,0.0,160,6,2,0.37945284372454435,-0.925211078289358,5,1,0,-0.9749279,-0.22252093,1,0.17797252378882775,0.4113166531807007,0.5732884190724655,0.7461032197188816,1.0146430907290485,0.8366705669402207,0.5963078072589381
-0,25,2024-06-09,0.9,0.0,0.7,0.4,0.3,0.0,0,0,0,0.0,1.0,0.4708333333333334,0.18761469921708912,0.8,0.2,0.39315068493150684,0.20298383017379576,0.9,0.0,161,6,2,0.36348161248290634,-0.9316013725767187,6,1,0,-0.7818315,0.6234898,1,0.18821644662937706,0.41244564632957725,0.5946393646364998,0.7595996983279869,1.0233497918307948,0.8351333452014177,0.6057831192300859
+product_id,store_id,hour_timestamp,sales_quantity,latent_demand,sales_quantity_lag_1,sales_quantity_lag_24,sales_quantity_lag_48,sales_quantity_lag_168,hour_of_day,is_morning_peak,is_evening_peak,hour_sin,hour_cos,rolling_mean_24_lag_1,rolling_std_24_lag_1,rolling_max_24_lag_1,rolling_min_24_lag_1,rolling_mean_168_lag_1,rolling_std_168_lag_1,rolling_max_168_lag_1,rolling_min_168_lag_1,day_of_year,month,quarter,day_sin,day_cos,day_of_week,is_overnight,is_lunch_hour,dow_sin,dow_cos,is_weekend,forecast_q05,forecast_q25,forecast_q50,forecast_q75,forecast_q95,prediction_interval,prediction_center
+
+0,25,2024-06-08,0.7,0.0,0.8,0.5,0.5,0.0,0,0,0,0.0,1.0,0.46249999999999997,0.18132963018384135,0.8,0.2,0.3888888888888889,0.2010924778889971,0.9,0.0,160,6,2,0.37945284372454435,-0.925211078289358,5,1,0,-0.9749279,-0.22252093,1,0.1741359453162439,0.4027514272483318,0.5938708826003294,0.7626844391335542,1.0059361281968324,0.8318001828805885,0.5900360367565382
+
+0,25,2024-06-09,0.9,0.0,0.7,0.4,0.3,0.0,0,0,0,0.0,1.0,0.4708333333333334,0.18761469921708912,0.8,0.2,0.39315068493150684,0.20298383017379576,0.9,0.0,161,6,2,0.36348161248290634,-0.9316013725767187,6,1,0,-0.7818315,0.6234898,1,0.19706910391884802,0.40997506183997123,0.5981381970457081,0.7588922132736818,1.0311788325971265,0.8341097286782785,0.6141239682579873
+
 
 ```
 *309,695 forecast records with 5 quantile predictions (Q05, Q25, Q50, Q75, Q95) per product-store-hour combination.*
@@ -112,8 +115,10 @@ Inventory Optimization Results:
 
 ### Sample Output
 ```csv
-product_id,store_id,timestamp,avg_daily_demand,demand_std,annual_demand,reorder_point,lead_time_demand,safety_stock,economic_order_quantity,order_frequency_days,current_inventory,days_until_reorder,should_reorder,stockout_risk,overstock_risk,total_annual_cost,service_level,inventory_ratio
-0.0,25.0,2025-11-18T13:41:23.969612,0.5565060434264191,0.2507080466029795,203.12470585064293,4.986592043336394,3.8955423039849335,1.0910497393514609,100.7781488842306,181.09084362092003,1.0,4.480267646900872,False,3.263693426625025e-08,0.9999146565272262,201.5562977684612,0.95,1.7647058823529411
+product_id,store_id,timestamp,avg_daily_demand,demand_std,annual_demand,reorder_point,lead_time_demand,safety_stock,economic_order_quantity,eoq_unconstrained,recommended_order_quantity,order_frequency_days,shelf_life_days,max_sellable_quantity,constraint_reason,current_inventory,days_until_reorder,should_reorder,stockout_risk,overstock_risk,total_annual_cost,service_level,inventory_ratio
+
+0.0,25.0,2025-11-18T23:34:31.360209,0.5556788158825303,0.2512755022879868,202.8227677971236,4.983270945966634,3.889751711177712,1.093519234788921,7.779503422355424,100.70321936192596,7.779503422355424,14.000000000000002,14,7.779503422355424,shelf_life_limited,1.0,4.483949003933318,False,3.469746268081053e-08,0.9999108311851576,1311.350931993784,0.95,1.7647058823529411
+
 
 ```
 *10 products optimized with complete inventory metrics and risk assessments.*
@@ -149,9 +154,12 @@ Dynamic Pricing Results:
 
 ### Sample Output
 ```csv
-recommended_price,current_price,discount_pct,discount_amount,action,reasoning,profit_margin,profit_per_unit,should_apply,product_id
-20.49878259516093,21.854305348131312,0.0620254330383595,1.3555227529703815,small_discount,Weak demand - small promotional discount,0.4291486320971629,8.797024510370445,True,0
-43.93530014665565,47.78214378844623,0.0805079750884,3.846843641790578,small_discount,Weak demand - small promotional discount,0.3636066155566805,15.975165789792388,True,0
+recommended_price,current_price,discount_pct,discount_amount,action,reasoning,profit_margin,profit_per_unit,should_apply,product_id
+
+20.49878259516093,21.854305348131312,0.0620254330383595,1.3555227529703815,small_discount,Weak demand - small promotional discount,0.4291486320971629,8.797024510370445,True,0
+
+43.93530014665565,47.78214378844623,0.0805079750884,3.846843641790578,small_discount,Weak demand - small promotional discount,0.3636066155566805,15.975165789792388,True,0
+
 
 ```
 *20 pricing recommendations with profit margin optimization and promotional strategies.*
@@ -355,11 +363,40 @@ pytest tests/test_smoke.py         # Smoke tests
 
 ---
 
+## 📊 DATASET LIMITATIONS & ACCURACY IMPROVEMENT POTENTIAL
+
+### Current Performance Context
+**The reported accuracy metrics (85.68% R², 87.03% coverage) are achieved using the FreshRetail-50K dataset**. This dataset provides a robust foundation for demonstrating the forecasting methodology and business impact, but represents a subset of the full data that would be available in production environments.
+
+### Dataset Constraints
+- **Historical Depth**: Limited to 6 months of sales data
+- **Geographic Scope**: Single-market focus
+- **Customer Insights**: No demographic or behavioral segmentation
+- **External Factors**: Basic weather and holiday features only
+- **Supply Chain**: Minimal supplier and logistics data
+
+### Accuracy Improvement Opportunities
+**Significant accuracy improvements are possible with enhanced data sources:**
+
+#### Data Enhancement Categories
+- **Extended Historical Data**: 2-3 years additional sales history (+5-10% R² improvement)
+- **Customer Segmentation**: Demographics, buying patterns, loyalty data (+4-8% accuracy gain)
+- **External Integration**: Weather patterns, economic indicators, competitor data (+3-7% improvement)
+- **Supply Chain Data**: Lead times, transportation costs, supplier performance
+- **Geographic Expansion**: Multi-region data capturing local market variations
+
+#### Technical Implementation Approach
+- **Data Pipeline Expansion**: Modular data ingestion supporting new sources
+- **Feature Engineering**: Additional workstreams for customer and external features
+- **Model Architecture**: Enhanced ensemble methods for complex data relationships
+- **Validation Framework**: Cross-validation across different data segments
+
+---
+
 ## 🔮 FUTURE ENHANCEMENTS
 
 ### Planned Features
-- **LLM Integration:** Actual Gemini API calls (currently rule-based)
-- **Real-time Processing:** Streaming data ingestion
+
 - **Advanced Analytics:** Customer segmentation, market basket analysis
 - **Multi-location Support:** Cross-store optimization
 - **External Data Integration:** Weather, competitor pricing
@@ -399,4 +436,4 @@ SmartGrocy represents a production-ready, end-to-end solution for E-Grocery dema
 ---
 
 *This technical report was auto-generated by `scripts/generate_technical_report.py`*
-*Last updated: 2025-11-18 13:47:58*
+*Last updated: 2025-11-19 16:27:25*

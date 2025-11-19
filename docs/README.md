@@ -3,63 +3,62 @@
 ## 📖 NAVIGATION
 
 ### Getting Started
-- [Quick Start Guide](guides/QUICK_START_VALIDATION.md)
-- [Installation](../README.md#installation)
-- [Running Tests](guides/QUICK_START_VALIDATION.md#testing)
+- **[Quick Start Guide](QUICKSTART.md)** - Complete setup and usage guide
+- [Quick Start](../README.md#quick-start)
+- [Testing Guide](TEST_README.md)
 
 ### Technical Documentation
 - **[Technical Report](../TECHNICAL_REPORT.md)** - Complete system overview (Auto-generated)
 - **[Report Generator](../scripts/generate_technical_report.py)** - Auto-update technical docs
-- [Complete Enhancements Guide](technical/ENHANCEMENTS_COMPLETE.md)
-- [Module 4 Improvements](technical/MODULE4_IMPROVEMENTS.md)
-- [CI/CD Fixes](technical/CI_CD_FIXES_APPLIED.md)
-- [Refactoring Plan](technical/REFACTORING_PLAN.md)
+- [Memory Optimization Guide](MEMORY_OPTIMIZATION.md)
+- [Refactoring Plan](REFACTORING.md)
+- [Operations Guide](OPERATIONS.md)
 
-### Project Reports
-- [Audit Report](technical/COMPREHENSIVE_AUDIT_REPORT.md)
-- [Completion Summary](../COMPLETION_SUMMARY.md)
+### Business Modules
+- [LLM Insights V2](LLM_INSIGHTS_V2.md) - AI-powered business insights
+- [Logical Issues Analysis](LOGICAL_ISSUES_FIXES.md) - Data analysis and fixes
 
-### API Reference
-- [Module 2: Inventory Optimization](api/inventory.md) (TODO)
-- [Module 3: Dynamic Pricing](api/pricing.md) (TODO)
-- [Module 4: LLM Insights](api/insights.md) (TODO)
-- [Validation System](api/validation.md) (TODO)
+### Guides
+- [Retraining Guide](guides/retraining_guide.md) - Model retraining procedures
+- [Cloud Deployment](guides/deployment_cloud.md) - Production deployment guide
 
 ---
 
 ## 📚 QUICK LINKS
 
 **For Developers:**
-- [Enhancement Guide](technical/ENHANCEMENTS_COMPLETE.md)
-- [Testing Guide](guides/QUICK_START_VALIDATION.md)
-- [Refactoring Plan](technical/REFACTORING_PLAN.md)
+- [Contributing Guide](CONTRIBUTING.md)
+- [Testing Guide](TEST_README.md)
+- [Refactoring Plan](REFACTORING.md)
 
 **For Users:**
-- [Quick Start](guides/QUICK_START_VALIDATION.md)
-- [Module Overview](../README.md#modules)
+- [Quick Start](QUICKSTART.md)
+- [Operations Guide](OPERATIONS.md)
+- [Memory Optimization](MEMORY_OPTIMIZATION.md)
 
 **For Competition:**
-- [Demo Script](../COMPLETION_SUMMARY.md#demo)
-- [Competitive Advantages](../COMPLETION_SUMMARY.md#advantages)
+- [Changelog](CHANGELOG.md)
+- [Module Overview](../README.md#key-features)
 
 ---
 
 ## 🔍 SEARCH BY TOPIC
 
-### Validation
-- [MetricsValidator Guide](technical/MODULE4_IMPROVEMENTS.md#metricsvalidator)
-- [Report Validation](technical/ENHANCEMENTS_COMPLETE.md#testing)
-- [Testing Suite](guides/QUICK_START_VALIDATION.md)
+### Development
+- [Code Style](CONTRIBUTING.md#code-style)
+- [Testing Strategy](TEST_README.md)
+- [Refactoring](REFACTORING.md)
 
-### Modules
-- [Module 2 Enhanced](technical/ENHANCEMENTS_COMPLETE.md#module-2)
-- [Module 3 Enhanced](technical/ENHANCEMENTS_COMPLETE.md#module-3)
-- [Module 4 Complete](technical/MODULE4_IMPROVEMENTS.md)
+### Operations
+- [Deployment](guides/deployment_cloud.md)
+- [Monitoring](OPERATIONS.md#monitoring--alerting)
+- [Performance](MEMORY_OPTIMIZATION.md)
 
-### CI/CD
-- [Pipeline Optimization](technical/CI_CD_FIXES_APPLIED.md)
-- [Pre-commit Hooks](technical/CI_CD_FIXES_APPLIED.md#hooks)
+### Business Intelligence
+- [LLM Insights](LLM_INSIGHTS_V2.md)
+- [Data Analysis](LOGICAL_ISSUES_FIXES.md)
+- [Retraining](guides/retraining_guide.md)
 
 ---
 
-**Last Updated:** 18/11/2025
+**Last Updated:** 19/11/2025
