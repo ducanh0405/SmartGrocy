@@ -196,8 +196,7 @@ def _load_freshretail_data(data_dir: Path) -> dict[str, pd.DataFrame]:
         sales_df = _load_file(data_dir, 'freshretail_train') # Tên tệp từ file upload
     if sales_df is None:
         logger.error("FATAL: FreshRetail sales data not found (sales_hourly or freshretail_train).")
-        sys.exit(1)
-
+    raise ValueError("FreshRetail sales data not found (sales_hourly or freshretail_train).")
     # Convert dt column to hour_timestamp if needed
     if 'dt' in sales_df.columns and 'hour_timestamp' not in sales_df.columns:
         sales_df['hour_timestamp'] = pd.to_datetime(sales_df['dt'])
