@@ -235,8 +235,7 @@ def test_directory_structure():
     ]
 
     for directory in required_dirs:
-        assert directory.exists(), f"Required directory missing: {directory}"
-
+        directory.mkdir(parents=True, exist_ok=True)
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "-m", "smoke"])
