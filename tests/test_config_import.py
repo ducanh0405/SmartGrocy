@@ -1,6 +1,7 @@
 """
 Test script để kiểm tra import config
 """
+
 import sys
 from pathlib import Path
 
@@ -22,6 +23,7 @@ try:
         setup_project_path,
     )
     from src.config import PROJECT_ROOT as PR
+
     print("✓ Config imported successfully!")
     print(f"  Project root from config: {PR}")
     print(f"  Active dataset: {get_dataset_config()['name']}")
@@ -35,6 +37,6 @@ try:
 except ImportError as e:
     print(f"✗ Error importing config: {e}")
     import traceback
+
     traceback.print_exc()
     sys.exit(1)
-

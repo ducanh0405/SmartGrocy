@@ -3,6 +3,7 @@ WS4: Price & Promotion Features
 ================================
 Creates price and promotion features from transaction and causal data.
 """
+
 import logging
 
 import pandas as pd
@@ -30,40 +31,41 @@ def _clean_causal_data(df_causal: pd.DataFrame) -> pd.DataFrame:
     df_causal.columns = df_causal.columns.str.upper()
 
     # Convert data types
-    if 'DISPLAY' in df_causal.columns:
-        df_causal['DISPLAY'] = df_causal['DISPLAY'].astype(str)
-    if 'MAILER' in df_causal.columns:
-        df_causal['MAILER'] = df_causal['MAILER'].astype(str)
+    if "DISPLAY" in df_causal.columns:
+        df_causal["DISPLAY"] = df_causal["DISPLAY"].astype(str)
+    if "MAILER" in df_causal.columns:
+        df_causal["MAILER"] = df_causal["MAILER"].astype(str)
 
     # Rename columns to avoid conflicts when merging
     rename_map = {}
-    if 'DISPLAY' in df_causal.columns:
-        rename_map['DISPLAY'] = 'promo_display_type'
-    if 'MAILER' in df_causal.columns:
-        rename_map['MAILER'] = 'promo_mailer_type'
+    if "DISPLAY" in df_causal.columns:
+        rename_map["DISPLAY"] = "promo_display_type"
+    if "MAILER" in df_causal.columns:
+        rename_map["MAILER"] = "promo_mailer_type"
 
     if rename_map:
         df_causal = df_causal.rename(columns=rename_map)
 
     # Create binary flags
-    if 'promo_display_type' in df_causal.columns:
-        df_causal['is_on_display'] = (df_causal['promo_display_type'] != '0').astype(int)
-    if 'promo_mailer_type' in df_causal.columns:
-        df_causal['is_on_mailer'] = (df_causal['promo_mailer_type'] != '0').astype(int)
+    if "promo_display_type" in df_causal.columns:
+        df_causal["is_on_display"] = (df_causal["promo_display_type"] != "0").astype(int)
+    if "promo_mailer_type" in df_causal.columns:
+        df_causal["is_on_mailer"] = (df_causal["promo_mailer_type"] != "0").astype(int)
 
     # Keep only necessary columns for merge
     # Key columns for Dunnhumby causal: 'STORE_ID', 'PRODUCT_ID', 'WEEK_NO'
-    causal_features = ['STORE_ID', 'PRODUCT_ID', 'WEEK_NO']
-    if 'is_on_display' in df_causal.columns:
-        causal_features.append('is_on_display')
-    if 'is_on_mailer' in df_causal.columns:
-        causal_features.append('is_on_mailer')
+    causal_features = ["STORE_ID", "PRODUCT_ID", "WEEK_NO"]
+    if "is_on_display" in df_causal.columns:
+        causal_features.append("is_on_display")
+    if "is_on_mailer" in df_causal.columns:
+        causal_features.append("is_on_mailer")
 
     # Remove duplicates if any
     df_causal_clean = df_causal[causal_features].drop_duplicates()
 
     logger.info(f"  Cleaned causal data: {len(df_causal_clean):,} rows")
     return df_causal_clean
+
 
 def _clean_transaction_data(master_df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -78,7 +80,7 @@ def _clean_transaction_data(master_df: pd.DataFrame) -> pd.DataFrame:
     logger.info("[WS4] Creating price/promotion features from transaction data...")
 
     # These columns come from transaction_data.csv
-    price_cols = ['SALES_VALUE', 'RETAIL_DISC', 'COUPON_DISC']
+    price_cols = ["SALES_VALUE", "RETAIL_DISC", "COUPON_DISC"]
 
     # Check which columns exist
     existing_price_cols = [col for col in price_cols if col in master_df.columns]
@@ -94,35 +96,36 @@ def _clean_transaction_data(master_df: pd.DataFrame) -> pd.DataFrame:
     # 1. Calculate base price
     # Base price = (Sales value - total discounts)
     # Note: Dunnhumby discounts are NEGATIVE numbers, so we subtract them
-    if 'SALES_VALUE' in master_df.columns:
+    if "SALES_VALUE" in master_df.columns:
         discount_sum = 0
-        if 'RETAIL_DISC' in master_df.columns:
-            discount_sum += master_df['RETAIL_DISC']
-        if 'COUPON_DISC' in master_df.columns:
-            discount_sum += master_df['COUPON_DISC']
+        if "RETAIL_DISC" in master_df.columns:
+            discount_sum += master_df["RETAIL_DISC"]
+        if "COUPON_DISC" in master_df.columns:
+            discount_sum += master_df["COUPON_DISC"]
 
-        master_df['base_price'] = master_df['SALES_VALUE'] - discount_sum
+        master_df["base_price"] = master_df["SALES_VALUE"] - discount_sum
 
     # 2. Create discount percentage feature
     # (Avoid division by zero)
-    if 'RETAIL_DISC' in master_df.columns and 'COUPON_DISC' in master_df.columns:
-        master_df['total_discount'] = (master_df['RETAIL_DISC'] + master_df['COUPON_DISC']).abs()
-        if 'base_price' in master_df.columns:
-            master_df['discount_pct'] = master_df['total_discount'] / (master_df['base_price'] + 1e-6)
+    if "RETAIL_DISC" in master_df.columns and "COUPON_DISC" in master_df.columns:
+        master_df["total_discount"] = (master_df["RETAIL_DISC"] + master_df["COUPON_DISC"]).abs()
+        if "base_price" in master_df.columns:
+            master_df["discount_pct"] = master_df["total_discount"] / (
+                master_df["base_price"] + 1e-6
+            )
 
     # 3. Create binary flags
-    if 'RETAIL_DISC' in master_df.columns:
-        master_df['is_on_retail_promo'] = (master_df['RETAIL_DISC'] < 0).astype(int)
-    if 'COUPON_DISC' in master_df.columns:
-        master_df['is_on_coupon_promo'] = (master_df['COUPON_DISC'] < 0).astype(int)
+    if "RETAIL_DISC" in master_df.columns:
+        master_df["is_on_retail_promo"] = (master_df["RETAIL_DISC"] < 0).astype(int)
+    if "COUPON_DISC" in master_df.columns:
+        master_df["is_on_coupon_promo"] = (master_df["COUPON_DISC"] < 0).astype(int)
 
     logger.info("  Created price/promotion features from transaction data")
     return master_df
 
 
 def add_price_promotion_features(
-    master_df: pd.DataFrame,
-    dataframes_dict: dict[str, pd.DataFrame]
+    master_df: pd.DataFrame, dataframes_dict: dict[str, pd.DataFrame]
 ) -> pd.DataFrame:
     """
     Main function for Workstream 4: Price & Promotion Features.
@@ -145,7 +148,7 @@ def add_price_promotion_features(
     master_df = _clean_transaction_data(master_df)
 
     # 2. Process and merge Causal data (Promotions)
-    if 'causal_data' not in dataframes_dict:
+    if "causal_data" not in dataframes_dict:
         logger.warning(
             "SKIPPING WS4 (Causal): 'causal_data' not found in dataframes_dict. "
             "Returning with transaction-based features only."
@@ -153,14 +156,14 @@ def add_price_promotion_features(
         return master_df
 
     try:
-        df_causal_clean = _clean_causal_data(dataframes_dict['causal_data'])
+        df_causal_clean = _clean_causal_data(dataframes_dict["causal_data"])
     except Exception as e:
         logger.error(f"ERROR cleaning causal data: {e}. Continuing without causal features.")
         return master_df
 
     # 3. Merge into Master Table
     # Key columns for Dunnhumby: 'STORE_ID', 'PRODUCT_ID', 'WEEK_NO'
-    merge_keys = ['STORE_ID', 'PRODUCT_ID', 'WEEK_NO']
+    merge_keys = ["STORE_ID", "PRODUCT_ID", "WEEK_NO"]
 
     missing_keys = [key for key in merge_keys if key not in master_df.columns]
     if missing_keys:
@@ -181,7 +184,7 @@ def add_price_promotion_features(
 
     try:
         original_rows = master_df.shape[0]
-        master_df = pd.merge(master_df, df_causal_clean, on=merge_keys, how='left')
+        master_df = pd.merge(master_df, df_causal_clean, on=merge_keys, how="left")
 
         if master_df.shape[0] != original_rows:
             logger.error(
@@ -191,7 +194,7 @@ def add_price_promotion_features(
 
         # LỚP 2: Fill 0 cho các cờ khuyến mãi sau khi merge (luôn luôn)
         # Đảm bảo không có NaN trong promotion flags
-        promo_flags = ['is_on_display', 'is_on_mailer']
+        promo_flags = ["is_on_display", "is_on_mailer"]
         for col in promo_flags:
             if col in master_df.columns:
                 master_df[col] = master_df[col].fillna(0).astype(int)

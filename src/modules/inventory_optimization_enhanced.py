@@ -23,6 +23,7 @@ from scipy import stats
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class InventoryMetrics:
     """Enhanced metrics for inventory analysis."""
@@ -56,28 +57,30 @@ class InventoryMetrics:
     def to_dict(self) -> dict:
         """Convert to dictionary for Module 4."""
         return {
-            'current_inventory': self.current_inventory,
-            'safety_stock': self.safety_stock,
-            'reorder_point': self.reorder_point,
-            'eoq': self.economic_order_quantity,
-            'should_reorder': self.should_reorder,
-            'reorder_urgency': self.reorder_urgency,
-            'stockout_risk_pct': self.stockout_risk_pct,
-            'overstock_risk_pct': self.overstock_risk_pct,
-            'risk_category': self.risk_category,
-            'service_level': self.service_level_actual,
-            'fill_rate': self.fill_rate_expected,
-            'inventory_turnover': self.inventory_turnover,
-            'days_of_stock': self.days_of_stock,
-            'holding_cost_daily': self.holding_cost_daily,
-            'total_cost_daily': self.total_cost_daily,
-            'reorder_reasoning': self._generate_reasoning()
+            "current_inventory": self.current_inventory,
+            "safety_stock": self.safety_stock,
+            "reorder_point": self.reorder_point,
+            "eoq": self.economic_order_quantity,
+            "should_reorder": self.should_reorder,
+            "reorder_urgency": self.reorder_urgency,
+            "stockout_risk_pct": self.stockout_risk_pct,
+            "overstock_risk_pct": self.overstock_risk_pct,
+            "risk_category": self.risk_category,
+            "service_level": self.service_level_actual,
+            "fill_rate": self.fill_rate_expected,
+            "inventory_turnover": self.inventory_turnover,
+            "days_of_stock": self.days_of_stock,
+            "holding_cost_daily": self.holding_cost_daily,
+            "total_cost_daily": self.total_cost_daily,
+            "reorder_reasoning": self._generate_reasoning(),
         }
 
     def _generate_reasoning(self) -> str:
         """Generate human-readable reasoning."""
         if self.stockout_risk_pct > 70:
-            return f"URGENT: {self.stockout_risk_pct:.0f}% stockout risk - immediate reorder required"
+            return (
+                f"URGENT: {self.stockout_risk_pct:.0f}% stockout risk - immediate reorder required"
+            )
         elif self.should_reorder:
             return f"Inventory below ROP ({self.current_inventory:.0f} < {self.reorder_point:.0f}) - reorder recommended"
         elif self.overstock_risk_pct > 60:
@@ -102,7 +105,7 @@ class EnhancedInventoryOptimizer:
         unit_cost: float,
         lead_time_days: int = 7,
         ordering_cost: float = 50.0,
-        holding_cost_rate: float = 0.20
+        holding_cost_rate: float = 0.20,
     ) -> InventoryMetrics:
         """Calculate comprehensive inventory metrics."""
 
@@ -121,7 +124,9 @@ class EnhancedInventoryOptimizer:
 
         # Stockout risk
         if demand_std > 0:
-            z_current = (current_inventory - lead_time_demand) / (demand_std * np.sqrt(lead_time_days))
+            z_current = (current_inventory - lead_time_demand) / (
+                demand_std * np.sqrt(lead_time_days)
+            )
             stockout_risk_pct = (1 - stats.norm.cdf(z_current)) * 100
         else:
             stockout_risk_pct = 0 if current_inventory >= lead_time_demand else 100
@@ -187,7 +192,7 @@ class EnhancedInventoryOptimizer:
             total_cost_daily=total_cost_daily,
             should_reorder=should_reorder,
             reorder_urgency=urgency,
-            risk_category=risk_category
+            risk_category=risk_category,
         )
 
 
@@ -201,7 +206,7 @@ if __name__ == "__main__":
         demand_std=15,
         current_inventory=120,
         unit_cost=30000,
-        lead_time_days=7
+        lead_time_days=7,
     )
 
     print("\nEnhanced Inventory Metrics:")

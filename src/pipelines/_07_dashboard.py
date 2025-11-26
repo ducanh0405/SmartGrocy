@@ -3,12 +3,13 @@ Forecast Dashboard Generator
 ============================
 Tạo dashboard HTML tối ưu UX/UI để hiển thị kết quả prediction và SHAP values.
 """
+
 import logging
 import sys
 import warnings
 from pathlib import Path
 
-warnings.filterwarnings('ignore')
+warnings.filterwarnings("ignore")
 
 # Setup project path FIRST before any other imports
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -26,6 +27,7 @@ try:
         setup_logging,
         setup_project_path,
     )
+
     setup_project_path()
     setup_logging()
     ensure_directories()
@@ -47,19 +49,19 @@ import pandas as pd
 def load_predictions() -> pd.DataFrame:
     """Load predictions từ file."""
     # Always load from gzip CSV file
-    predictions_path = OUTPUT_FILES['predictions_test'].with_suffix('.csv.gz')
+    predictions_path = OUTPUT_FILES["predictions_test"].with_suffix(".csv.gz")
 
     if not predictions_path.exists():
         raise FileNotFoundError(f"Predictions file not found: {predictions_path}")
 
-    df = pd.read_csv(predictions_path, compression='gzip')
+    df = pd.read_csv(predictions_path, compression="gzip")
     logger.info(f"Loaded predictions: {df.shape}")
     return df
 
 
 def load_metrics() -> dict[str, Any]:
     """Load metrics từ file."""
-    metrics_path = OUTPUT_FILES['model_metrics']
+    metrics_path = OUTPUT_FILES["model_metrics"]
     if not metrics_path.exists():
         logger.warning(f"Metrics file not found: {metrics_path}")
         return {}
@@ -82,9 +84,9 @@ def load_metrics() -> dict[str, Any]:
 
 def load_shap_values() -> dict[str, Any] | None:
     """Load SHAP values từ file."""
-    shap_dir = OUTPUT_FILES['shap_values_dir']
-    shap_df_path = shap_dir / 'shap_values.csv'
-    shap_summary_path = shap_dir / 'shap_summary.json'
+    shap_dir = OUTPUT_FILES["shap_values_dir"]
+    shap_df_path = shap_dir / "shap_values.csv"
+    shap_summary_path = shap_dir / "shap_summary.json"
 
     if not shap_df_path.exists():
         logger.warning(f"SHAP values file not found: {shap_df_path}")
@@ -97,19 +99,14 @@ def load_shap_values() -> dict[str, Any] | None:
             with open(shap_summary_path) as f:
                 shap_summary = json.load(f)
 
-        return {
-            'shap_values': shap_df,
-            'summary': shap_summary
-        }
+        return {"shap_values": shap_df, "summary": shap_summary}
     except Exception as e:
         logger.warning(f"Error loading SHAP values: {e}")
         return None
 
 
 def create_dashboard_html(
-    predictions: pd.DataFrame,
-    metrics: dict[str, Any],
-    shap_values: dict[str, Any] | None = None
+    predictions: pd.DataFrame, metrics: dict[str, Any], shap_values: dict[str, Any] | None = None
 ) -> str:
     """
     Tạo dashboard HTML với visualizations.
@@ -123,24 +120,27 @@ def create_dashboard_html(
         HTML string
     """
     config = get_dataset_config()
-    target_col = config['target_column']
-    quantiles = TRAINING_CONFIG['quantiles']
+    target_col = config["target_column"]
+    quantiles = TRAINING_CONFIG["quantiles"]
 
     # Tính toán các statistics
-    pred_cols = [f'forecast_q{int(q*100):02d}' for q in quantiles]
+    pred_cols = [f"forecast_q{int(q*100):02d}" for q in quantiles]
     available_pred_cols = [col for col in pred_cols if col in predictions.columns]
 
     # Tạo data cho charts
-    predictions_json = predictions[available_pred_cols + [target_col]].to_dict('records') if target_col in predictions.columns else predictions[available_pred_cols].to_dict('records')
+    predictions_json = (
+        predictions[available_pred_cols + [target_col]].to_dict("records")
+        if target_col in predictions.columns
+        else predictions[available_pred_cols].to_dict("records")
+    )
 
     # Top features từ SHAP values
     top_features = []
-    if shap_values and 'shap_values' in shap_values:
-        shap_df = shap_values['shap_values']
+    if shap_values and "shap_values" in shap_values:
+        shap_df = shap_values["shap_values"]
         feature_importance = shap_df.abs().mean().sort_values(ascending=False).head(20)
         top_features = [
-            {'feature': feat, 'importance': float(imp)}
-            for feat, imp in feature_importance.items()
+            {"feature": feat, "importance": float(imp)} for feat, imp in feature_importance.items()
         ]
 
     # Metrics summary
@@ -158,42 +158,55 @@ def create_dashboard_html(
             # Nested structure: {model_type: {metric: value}}
             num_models = len(metrics)
             # Chỉ hiển thị metrics cho 5 quantiles: Q05, Q25, Q50, Q75, Q95
-            quantile_keys = ['q05', 'q25', 'q50', 'q75', 'q95']
+            quantile_keys = ["q05", "q25", "q50", "q75", "q95"]
             for model_type, model_metrics in metrics.items():
                 if isinstance(model_metrics, dict):
                     for metric_name, metric_value in model_metrics.items():
                         if isinstance(metric_value, int | float):
                             # Chỉ hiển thị metrics cho 5 quantiles được train
                             if any(q in metric_name.lower() for q in quantile_keys):
-                                if 'pinball' in metric_name.lower() or 'mae' in metric_name.lower() or 'rmse' in metric_name.lower():
-                                    metrics_summary.append({
-                                        'model': model_type,
-                                        'metric': metric_name,
-                                        'value': float(metric_value)
-                                    })
+                                if (
+                                    "pinball" in metric_name.lower()
+                                    or "mae" in metric_name.lower()
+                                    or "rmse" in metric_name.lower()
+                                ):
+                                    metrics_summary.append(
+                                        {
+                                            "model": model_type,
+                                            "metric": metric_name,
+                                            "value": float(metric_value),
+                                        }
+                                    )
         else:
             # Flat structure: {metric: value} - assume single model (lightgbm or default)
             num_models = 1
-            model_type = 'lightgbm'  # Default model type
+            model_type = "lightgbm"  # Default model type
             # Chỉ hiển thị metrics cho 5 quantiles: Q05, Q25, Q50, Q75, Q95
-            quantile_keys = ['q05', 'q25', 'q50', 'q75', 'q95']
+            quantile_keys = ["q05", "q25", "q50", "q75", "q95"]
             for metric_name, metric_value in metrics.items():
                 if isinstance(metric_value, int | float):
                     # Chỉ hiển thị metrics cho 5 quantiles được train
                     if any(q in metric_name.lower() for q in quantile_keys):
-                        if 'pinball' in metric_name.lower() or 'mae' in metric_name.lower() or 'rmse' in metric_name.lower():
-                            metrics_summary.append({
-                                'model': model_type,
-                                'metric': metric_name,
-                                'value': float(metric_value)
-                            })
+                        if (
+                            "pinball" in metric_name.lower()
+                            or "mae" in metric_name.lower()
+                            or "rmse" in metric_name.lower()
+                        ):
+                            metrics_summary.append(
+                                {
+                                    "model": model_type,
+                                    "metric": metric_name,
+                                    "value": float(metric_value),
+                                }
+                            )
 
     # Tính toán thêm statistics cho dashboard
     total_predictions = len(predictions)
     num_quantiles = len(available_pred_cols)
 
     # HTML template với design cải tiến
-    html = """
+    html = (
+        """
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -596,22 +609,30 @@ def create_dashboard_html(
             <div class="stat-card">
                 <div class="icon">📊</div>
                 <h3>Total Predictions</h3>
-                <div class="value" data-target=""" + str(total_predictions) + """>0</div>
+                <div class="value" data-target="""
+        + str(total_predictions)
+        + """>0</div>
             </div>
             <div class="stat-card">
                 <div class="icon">📈</div>
                 <h3>Quantiles</h3>
-                <div class="value" data-target=""" + str(num_quantiles) + """>0</div>
+                <div class="value" data-target="""
+        + str(num_quantiles)
+        + """>0</div>
             </div>
             <div class="stat-card">
                 <div class="icon">🤖</div>
                 <h3>Models Trained</h3>
-                <div class="value" data-target=""" + str(num_models) + """>0</div>
+                <div class="value" data-target="""
+        + str(num_models)
+        + """>0</div>
             </div>
             <div class="stat-card">
                 <div class="icon">⭐</div>
                 <h3>Top Features</h3>
-                <div class="value" data-target=""" + str(len(top_features)) + """>0</div>
+                <div class="value" data-target="""
+        + str(len(top_features))
+        + """>0</div>
             </div>
         </div>
 
@@ -645,10 +666,14 @@ def create_dashboard_html(
                         </tr>
                     </thead>
                     <tbody>
-                        """ + ''.join([
-                            f'<tr><td>{m["model"]}</td><td>{m["metric"]}</td><td>{m["value"]:.4f}</td></tr>'
-                            for m in metrics_summary
-                        ]) + """
+                        """
+        + "".join(
+            [
+                f'<tr><td>{m["model"]}</td><td>{m["metric"]}</td><td>{m["value"]:.4f}</td></tr>'
+                for m in metrics_summary
+            ]
+        )
+        + """
                     </tbody>
                 </table>
             </div>
@@ -659,10 +684,14 @@ def create_dashboard_html(
                 <h2>Top Features by Importance (SHAP Values)</h2>
                 <div id="feature-importance" class="chart"></div>
                 <div class="feature-list">
-                    """ + ''.join([
-                        f'<div class="feature-item"><div class="feature-name">{f["feature"]}</div><div class="feature-importance">{f["importance"]:.4f}</div></div>'
-                        for f in top_features[:14]
-                    ]) + """
+                    """
+        + "".join(
+            [
+                f'<div class="feature-item"><div class="feature-name">{f["feature"]}</div><div class="feature-importance">{f["importance"]:.4f}</div></div>'
+                for f in top_features[:14]
+            ]
+        )
+        + """
                 </div>
             </div>
         </div>
@@ -712,8 +741,12 @@ def create_dashboard_html(
         }}
 
         // Prediction Distribution Chart
-        const predData = """ + json.dumps(predictions_json[:200]) + """;
-        const predValues = predData.map(d => d['""" + (available_pred_cols[0] if available_pred_cols else "forecast_q50") + """'] || 0);
+        const predData = """
+        + json.dumps(predictions_json[:200])
+        + """;
+        const predValues = predData.map(d => d['"""
+        + (available_pred_cols[0] if available_pred_cols else "forecast_q50")
+        + """'] || 0);
 
         Plotly.newPlot('prediction-distribution', [{{
             x: predValues,
@@ -750,7 +783,9 @@ def create_dashboard_html(
 
         const traces = [];
 
-        """ + (f"""
+        """
+        + (
+            f"""
         if (predData.length > 0 && '{available_pred_cols[0] if len(available_pred_cols) > 0 else ""}' !== '') {{
             traces.push({{
                 x: xAxis,
@@ -786,7 +821,9 @@ def create_dashboard_html(
                 line: {{color: '#667eea', width: 3}}
             }});
         }}
-        """ if available_pred_cols else """
+        """
+            if available_pred_cols
+            else """
         traces.push({
             x: xAxis,
             y: sampleData.map(d => d['forecast_q05'] || 0),
@@ -815,7 +852,9 @@ def create_dashboard_html(
             mode: 'lines',
             line: {color: '#667eea', width: 3}
         });
-        """) + """
+        """
+        )
+        + """
 
         Plotly.newPlot('prediction-intervals', traces, {{
             title: {{
@@ -844,7 +883,9 @@ def create_dashboard_html(
         }}, {{responsive: true}});
 
         // Feature Importance Chart
-        const features = """ + json.dumps(top_features[:20]) + """;
+        const features = """
+        + json.dumps(top_features[:20])
+        + """;
         const featureNames = features.map(f => f.feature);
         const featureImportance = features.map(f => f.importance);
 
@@ -890,6 +931,7 @@ def create_dashboard_html(
 </body>
 </html>
     """
+    )
 
     return html
 
@@ -916,10 +958,10 @@ def main():
         html = create_dashboard_html(predictions, metrics, shap_values)
 
         # Save dashboard
-        dashboard_path = OUTPUT_FILES['dashboard_html']
+        dashboard_path = OUTPUT_FILES["dashboard_html"]
         dashboard_path.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(dashboard_path, 'w', encoding='utf-8') as f:
+        with open(dashboard_path, "w", encoding="utf-8") as f:
             f.write(html)
 
         logger.info(f"✓ Dashboard saved to: {dashboard_path}")
@@ -934,4 +976,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

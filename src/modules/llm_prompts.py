@@ -187,4 +187,3 @@ Provide insights specific to Vietnam e-grocery:
 
 Generate the comprehensive business insight now, synthesizing all three modules:
 """
-

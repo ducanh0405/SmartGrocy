@@ -4,6 +4,7 @@ Data Lineage Tracking Module
 Tracks data flow through the pipeline for transparency and debugging.
 Provides lineage graphs and dependency tracking.
 """
+
 import json
 import logging
 from dataclasses import asdict, dataclass
@@ -21,6 +22,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class DataArtifact:
     """Represents a data artifact in the pipeline."""
+
     name: str
     artifact_type: str  # 'raw_data', 'processed_data', 'model', 'feature_table', etc.
     path: str | None = None
@@ -38,6 +40,7 @@ class DataArtifact:
 @dataclass
 class PipelineStep:
     """Represents a step in the pipeline."""
+
     step_name: str
     step_type: str  # 'load', 'transform', 'feature_engineering', 'train', 'predict'
     inputs: list[str]  # Names of input artifacts
@@ -65,7 +68,7 @@ class DataLineageTracker:
         Args:
             lineage_dir: Directory to store lineage data
         """
-        self.lineage_dir = lineage_dir or (PROJECT_ROOT / 'reports' / 'lineage')
+        self.lineage_dir = lineage_dir or (PROJECT_ROOT / "reports" / "lineage")
         self.lineage_dir.mkdir(exist_ok=True)
 
         # In-memory storage
@@ -92,9 +95,7 @@ class DataLineageTracker:
 
         # Add to graph
         self.lineage_graph.add_node(
-            artifact.name,
-            type=artifact.artifact_type,
-            **artifact.to_dict()
+            artifact.name, type=artifact.artifact_type, **artifact.to_dict()
         )
 
         logger.debug(f"Registered artifact: {artifact.name}")
@@ -113,11 +114,7 @@ class DataLineageTracker:
 
         # Add step to graph
         step_id = f"step_{len(self.steps)}"
-        self.lineage_graph.add_node(
-            step_id,
-            node_type='step',
-            **step.to_dict()
-        )
+        self.lineage_graph.add_node(step_id, node_type="step", **step.to_dict())
 
         # Add edges from inputs to step
         for input_name in step.inputs:
@@ -144,11 +141,11 @@ class DataLineageTracker:
             return {}
 
         lineage = {
-            'artifact': self.artifacts[artifact_name].to_dict(),
-            'upstream_steps': [],
-            'downstream_steps': [],
-            'upstream_artifacts': [],
-            'downstream_artifacts': []
+            "artifact": self.artifacts[artifact_name].to_dict(),
+            "upstream_steps": [],
+            "downstream_steps": [],
+            "upstream_artifacts": [],
+            "downstream_artifacts": [],
         }
 
         # Find upstream and downstream
@@ -157,19 +154,19 @@ class DataLineageTracker:
             upstream = list(self.lineage_graph.predecessors(artifact_name))
             for node in upstream:
                 node_data = self.lineage_graph.nodes[node]
-                if node_data.get('node_type') == 'step':
-                    lineage['upstream_steps'].append(node_data)
+                if node_data.get("node_type") == "step":
+                    lineage["upstream_steps"].append(node_data)
                 else:
-                    lineage['upstream_artifacts'].append(node_data)
+                    lineage["upstream_artifacts"].append(node_data)
 
             # Downstream (successors)
             downstream = list(self.lineage_graph.successors(artifact_name))
             for node in downstream:
                 node_data = self.lineage_graph.nodes[node]
-                if node_data.get('node_type') == 'step':
-                    lineage['downstream_steps'].append(node_data)
+                if node_data.get("node_type") == "step":
+                    lineage["downstream_steps"].append(node_data)
                 else:
-                    lineage['downstream_artifacts'].append(node_data)
+                    lineage["downstream_artifacts"].append(node_data)
 
         return lineage
 
@@ -189,24 +186,20 @@ class DataLineageTracker:
         step = self.steps[step_index]
         step_id = f"step_{step_index + 1}"
 
-        lineage = {
-            'step': step.to_dict(),
-            'input_artifacts': [],
-            'output_artifacts': []
-        }
+        lineage = {"step": step.to_dict(), "input_artifacts": [], "output_artifacts": []}
 
         if step_id in self.lineage_graph:
             # Input artifacts
             predecessors = list(self.lineage_graph.predecessors(step_id))
             for pred in predecessors:
                 if pred in self.artifacts:
-                    lineage['input_artifacts'].append(self.artifacts[pred].to_dict())
+                    lineage["input_artifacts"].append(self.artifacts[pred].to_dict())
 
             # Output artifacts
             successors = list(self.lineage_graph.successors(step_id))
             for succ in successors:
                 if succ in self.artifacts:
-                    lineage['output_artifacts'].append(self.artifacts[succ].to_dict())
+                    lineage["output_artifacts"].append(self.artifacts[succ].to_dict())
 
         return lineage
 
@@ -218,36 +211,36 @@ class DataLineageTracker:
             Lineage report dictionary
         """
         report = {
-            'generated_at': datetime.now().isoformat(),
-            'total_artifacts': len(self.artifacts),
-            'total_steps': len(self.steps),
-            'artifacts_by_type': {},
-            'steps_by_type': {},
-            'pipeline_flow': []
+            "generated_at": datetime.now().isoformat(),
+            "total_artifacts": len(self.artifacts),
+            "total_steps": len(self.steps),
+            "artifacts_by_type": {},
+            "steps_by_type": {},
+            "pipeline_flow": [],
         }
 
         # Count artifacts by type
         for artifact in self.artifacts.values():
             art_type = artifact.artifact_type
-            report['artifacts_by_type'][art_type] = report['artifacts_by_type'].get(art_type, 0) + 1
+            report["artifacts_by_type"][art_type] = report["artifacts_by_type"].get(art_type, 0) + 1
 
         # Count steps by type
         for step in self.steps:
             step_type = step.step_type
-            report['steps_by_type'][step_type] = report['steps_by_type'].get(step_type, 0) + 1
+            report["steps_by_type"][step_type] = report["steps_by_type"].get(step_type, 0) + 1
 
         # Pipeline flow summary
         for i, step in enumerate(self.steps):
             flow_entry = {
-                'step_index': i + 1,
-                'step_name': step.step_name,
-                'step_type': step.step_type,
-                'inputs': step.inputs,
-                'outputs': step.outputs,
-                'status': step.status,
-                'execution_time': step.execution_time
+                "step_index": i + 1,
+                "step_name": step.step_name,
+                "step_type": step.step_type,
+                "inputs": step.inputs,
+                "outputs": step.outputs,
+                "status": step.status,
+                "execution_time": step.execution_time,
             }
-            report['pipeline_flow'].append(flow_entry)
+            report["pipeline_flow"].append(flow_entry)
 
         return report
 
@@ -262,7 +255,10 @@ class DataLineageTracker:
             Path to the exported graph
         """
         if output_path is None:
-            output_path = self.lineage_dir / f'lineage_graph_{datetime.now().strftime("%Y%m%d_%H%M%S")}.graphml'
+            output_path = (
+                self.lineage_dir
+                / f'lineage_graph_{datetime.now().strftime("%Y%m%d_%H%M%S")}.graphml'
+            )
 
         try:
             nx.write_graphml(self.lineage_graph, str(output_path))
@@ -291,7 +287,7 @@ class DataLineageTracker:
         def collect_upstream(node):
             for pred in self.lineage_graph.predecessors(node):
                 node_data = self.lineage_graph.nodes[pred]
-                if node_data.get('node_type') != 'step':
+                if node_data.get("node_type") != "step":
                     dependencies.add(pred)
                     collect_upstream(pred)
 
@@ -316,7 +312,9 @@ class DataLineageTracker:
 
             for output_name in step.outputs:
                 if output_name not in self.artifacts:
-                    issues.append(f"Step '{step.step_name}' references missing output: {output_name}")
+                    issues.append(
+                        f"Step '{step.step_name}' references missing output: {output_name}"
+                    )
 
         # Check for orphaned artifacts
         referenced_artifacts = set()
@@ -333,22 +331,24 @@ class DataLineageTracker:
     def _load_lineage(self):
         """Load existing lineage data from disk."""
         try:
-            lineage_file = self.lineage_dir / 'current_lineage.json'
+            lineage_file = self.lineage_dir / "current_lineage.json"
             if lineage_file.exists():
                 with open(lineage_file) as f:
                     data = json.load(f)
 
                 # Restore artifacts
-                for _name, artifact_data in data.get('artifacts', {}).items():
+                for _name, artifact_data in data.get("artifacts", {}).items():
                     artifact = DataArtifact(**artifact_data)
                     self.register_artifact(artifact)
 
                 # Restore steps
-                for step_data in data.get('steps', []):
+                for step_data in data.get("steps", []):
                     step = PipelineStep(**step_data)
                     self.record_step(step)
 
-                logger.info(f"Loaded existing lineage: {len(self.artifacts)} artifacts, {len(self.steps)} steps")
+                logger.info(
+                    f"Loaded existing lineage: {len(self.artifacts)} artifacts, {len(self.steps)} steps"
+                )
 
         except Exception as e:
             logger.warning(f"Failed to load existing lineage: {e}")
@@ -357,13 +357,13 @@ class DataLineageTracker:
         """Save current lineage to disk."""
         try:
             lineage_data = {
-                'saved_at': datetime.now().isoformat(),
-                'artifacts': {name: art.to_dict() for name, art in self.artifacts.items()},
-                'steps': [step.to_dict() for step in self.steps]
+                "saved_at": datetime.now().isoformat(),
+                "artifacts": {name: art.to_dict() for name, art in self.artifacts.items()},
+                "steps": [step.to_dict() for step in self.steps],
             }
 
-            lineage_file = self.lineage_dir / 'current_lineage.json'
-            with open(lineage_file, 'w') as f:
+            lineage_file = self.lineage_dir / "current_lineage.json"
+            with open(lineage_file, "w") as f:
                 json.dump(lineage_data, f, indent=2, default=str)
 
             logger.debug(f"Lineage saved to: {lineage_file}")
@@ -379,11 +379,11 @@ class DataLineageTracker:
             Statistics dictionary
         """
         stats = {
-            'total_artifacts': len(self.artifacts),
-            'total_steps': len(self.steps),
-            'graph_nodes': len(self.lineage_graph.nodes),
-            'graph_edges': len(self.lineage_graph.edges),
-            'lineage_breaks': len(self.detect_lineage_breaks())
+            "total_artifacts": len(self.artifacts),
+            "total_steps": len(self.steps),
+            "graph_nodes": len(self.lineage_graph.nodes),
+            "graph_edges": len(self.lineage_graph.edges),
+            "lineage_breaks": len(self.detect_lineage_breaks()),
         }
 
         # Artifact type breakdown
@@ -391,14 +391,14 @@ class DataLineageTracker:
         for artifact in self.artifacts.values():
             art_type = artifact.artifact_type
             artifact_types[art_type] = artifact_types.get(art_type, 0) + 1
-        stats['artifact_types'] = artifact_types
+        stats["artifact_types"] = artifact_types
 
         # Step type breakdown
         step_types = {}
         for step in self.steps:
             step_type = step.step_type
             step_types[step_type] = step_types.get(step_type, 0) + 1
-        stats['step_types'] = step_types
+        stats["step_types"] = step_types
 
         return stats
 

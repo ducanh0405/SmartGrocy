@@ -4,6 +4,7 @@ Alerting System for Pipeline Monitoring
 Provides automated alerting for pipeline failures, data quality issues, and performance degradation.
 Supports email, Slack, and logging-based notifications.
 """
+
 import json
 import logging
 import smtplib
@@ -15,6 +16,7 @@ from typing import Any
 try:
     from slack_sdk import WebClient
     from slack_sdk.errors import SlackApiError
+
     SLACK_AVAILABLE = True
 except ImportError:
     SLACK_AVAILABLE = False
@@ -31,11 +33,11 @@ class AlertManager:
 
     def __init__(self):
         self.alert_history = []
-        self.alert_configs = DATA_QUALITY_CONFIG.get('alerting', {})
+        self.alert_configs = DATA_QUALITY_CONFIG.get("alerting", {})
         self.slack_client = None
 
         # Setup Slack if enabled
-        if self.alert_configs.get('enable_slack_alerts', False):
+        if self.alert_configs.get("enable_slack_alerts", False):
             self._setup_slack()
 
     def _setup_slack(self):
@@ -51,26 +53,28 @@ class AlertManager:
         import os
 
         # Try environment variable first
-        token = os.getenv('SLACK_BOT_TOKEN')
+        token = os.getenv("SLACK_BOT_TOKEN")
 
         # Try config file
         if not token:
-            config_file = PROJECT_ROOT / 'config' / 'slack_config.json'
+            config_file = PROJECT_ROOT / "config" / "slack_config.json"
             if config_file.exists():
                 try:
                     with open(config_file) as f:
                         config = json.load(f)
-                        token = config.get('bot_token')
+                        token = config.get("bot_token")
                 except Exception as e:
                     logger.warning(f"Failed to load Slack config: {e}")
 
         return token
 
-    def send_alert(self,
-                  alert_type: str,
-                  message: str,
-                  severity: str = 'info',
-                  metadata: dict[str, Any] | None = None):
+    def send_alert(
+        self,
+        alert_type: str,
+        message: str,
+        severity: str = "info",
+        metadata: dict[str, Any] | None = None,
+    ):
         """
         Send alert through configured channels.
 
@@ -83,11 +87,11 @@ class AlertManager:
         timestamp = datetime.now().isoformat()
 
         alert = {
-            'timestamp': timestamp,
-            'type': alert_type,
-            'message': message,
-            'severity': severity,
-            'metadata': metadata or {}
+            "timestamp": timestamp,
+            "type": alert_type,
+            "message": message,
+            "severity": severity,
+            "metadata": metadata or {},
         }
 
         # Store alert history
@@ -97,25 +101,22 @@ class AlertManager:
 
         # Log alert
         log_message = f"[{severity.upper()}] {alert_type}: {message}"
-        if severity == 'error':
+        if severity == "error":
             logger.error(log_message)
-        elif severity == 'warning':
+        elif severity == "warning":
             logger.warning(log_message)
         else:
             logger.info(log_message)
 
         # Send through channels
-        if severity in ['warning', 'error', 'critical']:
+        if severity in ["warning", "error", "critical"]:
             self._send_email_alert(alert)
             self._send_slack_alert(alert)
 
         # Save alert to file
         self._save_alert_to_file(alert)
 
-    def alert_data_quality_issue(self,
-                               dataset_name: str,
-                               quality_score: float,
-                               issues: list[str]):
+    def alert_data_quality_issue(self, dataset_name: str, quality_score: float, issues: list[str]):
         """
         Alert for data quality issues.
 
@@ -124,31 +125,28 @@ class AlertManager:
             quality_score: Quality score (0-100)
             issues: List of quality issues
         """
-        threshold = self.alert_configs.get('alert_on_quality_below', 70)
+        threshold = self.alert_configs.get("alert_on_quality_below", 70)
 
         if quality_score < threshold:
             message = f"Data quality alert for {dataset_name}: Score {quality_score:.1f}/100 (threshold: {threshold})"
             if issues:
                 message += f"\nIssues: {', '.join(issues[:3])}"  # Show first 3 issues
 
-            severity = 'error' if quality_score < 50 else 'warning'
+            severity = "error" if quality_score < 50 else "warning"
 
             self.send_alert(
-                alert_type='data_quality',
+                alert_type="data_quality",
                 message=message,
                 severity=severity,
                 metadata={
-                    'dataset': dataset_name,
-                    'quality_score': quality_score,
-                    'issues_count': len(issues),
-                    'issues': issues
-                }
+                    "dataset": dataset_name,
+                    "quality_score": quality_score,
+                    "issues_count": len(issues),
+                    "issues": issues,
+                },
             )
 
-    def alert_pipeline_failure(self,
-                             pipeline_stage: str,
-                             error_message: str,
-                             retry_count: int = 0):
+    def alert_pipeline_failure(self, pipeline_stage: str, error_message: str, retry_count: int = 0):
         """
         Alert for pipeline failures.
 
@@ -162,19 +160,13 @@ class AlertManager:
             message += f" (after {retry_count} retries)"
 
         self.send_alert(
-            alert_type='pipeline_failure',
+            alert_type="pipeline_failure",
             message=message,
-            severity='error',
-            metadata={
-                'stage': pipeline_stage,
-                'error': error_message,
-                'retry_count': retry_count
-            }
+            severity="error",
+            metadata={"stage": pipeline_stage, "error": error_message, "retry_count": retry_count},
         )
 
-    def alert_data_drift(self,
-                        dataset_name: str,
-                        drift_metrics: dict[str, Any]):
+    def alert_data_drift(self, dataset_name: str, drift_metrics: dict[str, Any]):
         """
         Alert for data drift detection.
 
@@ -182,7 +174,7 @@ class AlertManager:
             dataset_name: Name of the dataset
             drift_metrics: Drift detection metrics
         """
-        if not self.alert_configs.get('alert_on_drift_detected', True):
+        if not self.alert_configs.get("alert_on_drift_detected", True):
             return
 
         message = f"Data drift detected in {dataset_name}"
@@ -198,20 +190,15 @@ class AlertManager:
             message += f"\nDetails: {', '.join(drift_details[:5])}"
 
         self.send_alert(
-            alert_type='data_drift',
+            alert_type="data_drift",
             message=message,
-            severity='warning',
-            metadata={
-                'dataset': dataset_name,
-                'drift_metrics': drift_metrics
-            }
+            severity="warning",
+            metadata={"dataset": dataset_name, "drift_metrics": drift_metrics},
         )
 
-    def alert_performance_issue(self,
-                              component: str,
-                              metric_name: str,
-                              current_value: float,
-                              threshold: float):
+    def alert_performance_issue(
+        self, component: str, metric_name: str, current_value: float, threshold: float
+    ):
         """
         Alert for performance issues.
 
@@ -223,32 +210,32 @@ class AlertManager:
         """
         message = f"Performance alert: {component} {metric_name} = {current_value:.2f} (threshold: {threshold:.2f})"
 
-        severity = 'warning' if current_value > threshold * 1.2 else 'info'
+        severity = "warning" if current_value > threshold * 1.2 else "info"
 
         self.send_alert(
-            alert_type='performance',
+            alert_type="performance",
             message=message,
             severity=severity,
             metadata={
-                'component': component,
-                'metric': metric_name,
-                'current_value': current_value,
-                'threshold': threshold
-            }
+                "component": component,
+                "metric": metric_name,
+                "current_value": current_value,
+                "threshold": threshold,
+            },
         )
 
     def _send_email_alert(self, alert: dict[str, Any]):
         """Send alert via email."""
-        if not self.alert_configs.get('enable_email_alerts', False):
+        if not self.alert_configs.get("enable_email_alerts", False):
             return
 
         try:
             # Email configuration
-            smtp_server = self._get_email_config('smtp_server', 'smtp.gmail.com')
-            smtp_port = self._get_email_config('smtp_port', 587)
-            sender_email = self._get_email_config('sender_email')
-            sender_password = self._get_email_config('sender_password')
-            recipient_emails = self._get_email_config('recipient_emails', [])
+            smtp_server = self._get_email_config("smtp_server", "smtp.gmail.com")
+            smtp_port = self._get_email_config("smtp_port", 587)
+            sender_email = self._get_email_config("sender_email")
+            sender_password = self._get_email_config("sender_password")
+            recipient_emails = self._get_email_config("recipient_emails", [])
 
             if not all([sender_email, sender_password, recipient_emails]):
                 logger.warning("Email configuration incomplete")
@@ -256,9 +243,9 @@ class AlertManager:
 
             # Create message
             msg = MIMEMultipart()
-            msg['From'] = sender_email
-            msg['To'] = ', '.join(recipient_emails)
-            msg['Subject'] = f"[{alert['severity'].upper()}] SmartGrocy Pipeline Alert"
+            msg["From"] = sender_email
+            msg["To"] = ", ".join(recipient_emails)
+            msg["Subject"] = f"[{alert['severity'].upper()}] SmartGrocy Pipeline Alert"
 
             body = f"""
             Alert Details:
@@ -270,7 +257,7 @@ class AlertManager:
             Metadata: {json.dumps(alert.get('metadata', {}), indent=2)}
             """
 
-            msg.attach(MIMEText(body, 'plain'))
+            msg.attach(MIMEText(body, "plain"))
 
             # Send email
             server = smtplib.SMTP(smtp_server, smtp_port)
@@ -291,15 +278,12 @@ class AlertManager:
             return
 
         try:
-            channel = self._get_slack_config('channel', '#pipeline-alerts')
+            channel = self._get_slack_config("channel", "#pipeline-alerts")
 
             # Format message for Slack
-            severity_emoji = {
-                'info': 'ℹ️',
-                'warning': '⚠️',
-                'error': '❌',
-                'critical': '🚨'
-            }.get(alert['severity'], '📢')
+            severity_emoji = {"info": "ℹ️", "warning": "⚠️", "error": "❌", "critical": "🚨"}.get(
+                alert["severity"], "📢"
+            )
 
             message = f"""
 {severity_emoji} *SmartGrocy Pipeline Alert*
@@ -311,14 +295,12 @@ class AlertManager:
 {alert['message']}
             """
 
-            if alert.get('metadata'):
-                metadata_str = "\n".join([f"• {k}: {v}" for k, v in alert['metadata'].items()])
+            if alert.get("metadata"):
+                metadata_str = "\n".join([f"• {k}: {v}" for k, v in alert["metadata"].items()])
                 message += f"\n\n*Details:*\n{metadata_str}"
 
             self.slack_client.chat_postMessage(
-                channel=channel,
-                text=message,
-                username='SmartGrocy Pipeline Monitor'
+                channel=channel, text=message, username="SmartGrocy Pipeline Monitor"
             )
 
             logger.info(f"Slack alert sent to {channel}")
@@ -331,14 +313,14 @@ class AlertManager:
     def _save_alert_to_file(self, alert: dict[str, Any]):
         """Save alert to file for historical tracking."""
         try:
-            alerts_dir = PROJECT_ROOT / 'logs' / 'alerts'
+            alerts_dir = PROJECT_ROOT / "logs" / "alerts"
             alerts_dir.mkdir(exist_ok=True)
 
             alert_file = alerts_dir / f"alerts_{datetime.now().strftime('%Y%m%d')}.jsonl"
 
-            with open(alert_file, 'a', encoding='utf-8') as f:
+            with open(alert_file, "a", encoding="utf-8") as f:
                 json.dump(alert, f, ensure_ascii=False)
-                f.write('\n')
+                f.write("\n")
 
         except Exception as e:
             logger.error(f"Failed to save alert to file: {e}")
@@ -353,7 +335,7 @@ class AlertManager:
 
         # Try config file
         if value is None:
-            config_file = PROJECT_ROOT / 'config' / 'email_config.json'
+            config_file = PROJECT_ROOT / "config" / "email_config.json"
             if config_file.exists():
                 try:
                     with open(config_file) as f:
@@ -374,7 +356,7 @@ class AlertManager:
 
         # Try config file
         if value is None:
-            config_file = PROJECT_ROOT / 'config' / 'slack_config.json'
+            config_file = PROJECT_ROOT / "config" / "slack_config.json"
             if config_file.exists():
                 try:
                     with open(config_file) as f:
@@ -398,23 +380,24 @@ class AlertManager:
         cutoff_time = datetime.now() - timedelta(hours=hours)
 
         recent_alerts = [
-            alert for alert in self.alert_history
-            if datetime.fromisoformat(alert['timestamp']) > cutoff_time
+            alert
+            for alert in self.alert_history
+            if datetime.fromisoformat(alert["timestamp"]) > cutoff_time
         ]
 
         summary = {
-            'total_alerts': len(recent_alerts),
-            'by_severity': {},
-            'by_type': {},
-            'time_range': f"{hours} hours"
+            "total_alerts": len(recent_alerts),
+            "by_severity": {},
+            "by_type": {},
+            "time_range": f"{hours} hours",
         }
 
         for alert in recent_alerts:
-            severity = alert['severity']
-            alert_type = alert['type']
+            severity = alert["severity"]
+            alert_type = alert["type"]
 
-            summary['by_severity'][severity] = summary['by_severity'].get(severity, 0) + 1
-            summary['by_type'][alert_type] = summary['by_type'].get(alert_type, 0) + 1
+            summary["by_severity"][severity] = summary["by_severity"].get(severity, 0) + 1
+            summary["by_type"][alert_type] = summary["by_type"].get(alert_type, 0) + 1
 
         return summary
 

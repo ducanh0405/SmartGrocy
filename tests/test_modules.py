@@ -49,14 +49,12 @@ def test_02_reorder_point_calculation():
     try:
         optimizer = InventoryOptimizer()
         result = optimizer.calculate_reorder_point(
-            avg_daily_demand=100,
-            demand_std=15,
-            lead_time_days=7
+            avg_daily_demand=100, demand_std=15, lead_time_days=7
         )
 
-        assert 'reorder_point' in result
-        assert result['reorder_point'] > result['lead_time_demand']
-        assert result['safety_stock'] > 0
+        assert "reorder_point" in result
+        assert result["reorder_point"] > result["lead_time_demand"]
+        assert result["safety_stock"] > 0
 
         print(f"✓ Test 2 PASSED: ROP = {result['reorder_point']:.1f} (includes safety stock)")
     except Exception as e:
@@ -69,14 +67,12 @@ def test_03_eoq_calculation():
     try:
         optimizer = InventoryOptimizer()
         result = optimizer.calculate_economic_order_quantity(
-            annual_demand=36500,  # 100/day
-            ordering_cost=50,
-            holding_cost_per_unit=2
+            annual_demand=36500, ordering_cost=50, holding_cost_per_unit=2  # 100/day
         )
 
-        assert 'eoq' in result
-        assert result['eoq'] > 0
-        assert result['num_orders_per_year'] > 0
+        assert "eoq" in result
+        assert result["eoq"] > 0
+        assert result["num_orders_per_year"] > 0
 
         print(f"✓ Test 3 PASSED: EOQ = {result['eoq']:.1f} units")
     except Exception as e:
@@ -104,12 +100,12 @@ def test_05_discount_calculation_logic():
         # Test Case 1: High inventory + Low demand = Large discount
         discount1, action1, _ = engine.calculate_discount(2.5, 0.7)
         assert discount1 >= 0.25, "Should give large discount"
-        assert action1 in ['large_discount', 'clearance']
+        assert action1 in ["large_discount", "clearance"]
 
         # Test Case 2: Low inventory = No discount
         discount2, action2, _ = engine.calculate_discount(0.5, 1.0)
         assert discount2 == 0.0, "Should maintain price"
-        assert action2 == 'maintain'
+        assert action2 == "maintain"
 
         print("✓ Test 5 PASSED: Discount logic works correctly")
     except Exception as e:
@@ -122,17 +118,16 @@ def test_06_pricing_recommendation():
     try:
         engine = DynamicPricingEngine()
         result = engine.recommend_price(
-            current_price=10.0,
-            inventory_ratio=2.0,
-            demand_ratio=0.8,
-            cost=5.0
+            current_price=10.0, inventory_ratio=2.0, demand_ratio=0.8, cost=5.0
         )
 
-        assert 'recommended_price' in result
-        assert result['recommended_price'] <= result['current_price']
-        assert result['profit_margin'] >= 0.10  # Minimum margin maintained
+        assert "recommended_price" in result
+        assert result["recommended_price"] <= result["current_price"]
+        assert result["profit_margin"] >= 0.10  # Minimum margin maintained
 
-        print(f"✓ Test 6 PASSED: Price ${result['current_price']:.2f} → ${result['recommended_price']:.2f}")
+        print(
+            f"✓ Test 6 PASSED: Price ${result['current_price']:.2f} → ${result['recommended_price']:.2f}"
+        )
     except Exception as e:
         print(f"✗ Test 6 FAILED: {e}")
         raise
@@ -141,9 +136,9 @@ def test_06_pricing_recommendation():
 def test_07_llm_insights_initialization():
     """Test Module 4: LLM Insights initialization"""
     try:
-        config = InsightConfig(use_llm_api=False, template_style='bullet')
+        config = InsightConfig(use_llm_api=False, template_style="bullet")
         generator = LLMInsightGenerator(config)
-        assert generator.config.template_style == 'bullet'
+        assert generator.config.template_style == "bullet"
         print("✓ Test 7 PASSED: LLM Insights Generator initializes correctly")
     except Exception as e:
         print(f"✗ Test 7 FAILED: {e}")
@@ -155,19 +150,15 @@ def test_08_rule_based_insight_generation():
     try:
         generator = LLMInsightGenerator()
 
-        forecast_data = {'q50': 150, 'q95': 200, 'trend': 'up'}
-        shap_values = {'promo_active': 0.35, 'price': -0.15}
+        forecast_data = {"q50": 150, "q95": 200, "trend": "up"}
+        shap_values = {"promo_active": 0.35, "price": -0.15}
 
-        insight = generator.generate_forecast_insight(
-            'TEST001',
-            forecast_data,
-            shap_values
-        )
+        insight = generator.generate_forecast_insight("TEST001", forecast_data, shap_values)
 
-        assert 'insight' in insight
-        assert 'causes' in insight
-        assert 'actions' in insight
-        assert len(insight['causes']) > 0
+        assert "insight" in insight
+        assert "causes" in insight
+        assert "actions" in insight
+        assert len(insight["causes"]) > 0
 
         print("✓ Test 8 PASSED: Insight generation works")
     except Exception as e:
@@ -178,12 +169,14 @@ def test_08_rule_based_insight_generation():
 def test_09_backtesting_initialization():
     """Test Backtesting Framework initialization"""
     try:
-        dates = pd.date_range('2025-11-01', '2025-11-14', freq='D')
-        historical = pd.DataFrame({
-            'date': dates,
-            'product_id': ['P001'] * len(dates),
-            'actual_demand': np.random.poisson(100, len(dates))
-        })
+        dates = pd.date_range("2025-11-01", "2025-11-14", freq="D")
+        historical = pd.DataFrame(
+            {
+                "date": dates,
+                "product_id": ["P001"] * len(dates),
+                "actual_demand": np.random.poisson(100, len(dates)),
+            }
+        )
 
         backtester = InventoryBacktester(historical)
         assert backtester.config.lead_time_days > 0
@@ -197,27 +190,31 @@ def test_09_backtesting_initialization():
 def test_10_backtesting_simulation():
     """Test Backtesting Framework simulation"""
     try:
-        dates = pd.date_range('2025-11-01', '2025-11-14', freq='D')
+        dates = pd.date_range("2025-11-01", "2025-11-14", freq="D")
         np.random.seed(42)
 
-        historical = pd.DataFrame({
-            'date': dates,
-            'product_id': ['P001'] * len(dates),
-            'actual_demand': np.random.poisson(100, len(dates))
-        })
+        historical = pd.DataFrame(
+            {
+                "date": dates,
+                "product_id": ["P001"] * len(dates),
+                "actual_demand": np.random.poisson(100, len(dates)),
+            }
+        )
 
-        forecasts = pd.DataFrame({
-            'date': dates,
-            'product_id': ['P001'] * len(dates),
-            'forecast_q50': historical['actual_demand'] * 0.95,
-            'forecast_q95': historical['actual_demand'] * 1.3
-        })
+        forecasts = pd.DataFrame(
+            {
+                "date": dates,
+                "product_id": ["P001"] * len(dates),
+                "forecast_q50": historical["actual_demand"] * 0.95,
+                "forecast_q95": historical["actual_demand"] * 1.3,
+            }
+        )
 
         backtester = InventoryBacktester(historical, forecasts)
         comparison = backtester.compare_strategies()
 
         assert len(comparison) == 3  # 3 metrics compared
-        assert 'improvement_pct' in comparison.columns
+        assert "improvement_pct" in comparison.columns
 
         print("✓ Test 10 PASSED: Simulation runs and generates KPIs")
     except Exception as e:
@@ -230,31 +227,35 @@ def test_11_module_integration():
     try:
         # Simulate end-to-end flow
         # Module 1: Forecast (simulated)
-        pd.DataFrame({
-            'product_id': ['P001'],
-            'forecast_q50': [100],
-            'forecast_q05': [80],
-            'forecast_q95': [120]
-        })
+        pd.DataFrame(
+            {
+                "product_id": ["P001"],
+                "forecast_q50": [100],
+                "forecast_q05": [80],
+                "forecast_q95": [120],
+            }
+        )
 
         # Module 2: Inventory optimization
         InventoryOptimizer()
         # Would normally use optimize_inventory_from_forecast, but simplified here
 
         # Module 3: Dynamic pricing
-        pricing_data = pd.DataFrame({
-            'product_id': ['P001'],
-            'current_price': [10.0],
-            'inventory_ratio': [2.0],
-            'demand_ratio': [0.8],
-            'cost': [5.0]
-        })
+        pricing_data = pd.DataFrame(
+            {
+                "product_id": ["P001"],
+                "current_price": [10.0],
+                "inventory_ratio": [2.0],
+                "demand_ratio": [0.8],
+                "cost": [5.0],
+            }
+        )
 
         engine = DynamicPricingEngine()
         pricing_result = engine.batch_optimize(pricing_data)
 
         assert len(pricing_result) == 1
-        assert 'recommended_price' in pricing_result.columns
+        assert "recommended_price" in pricing_result.columns
 
         print("✓ Test 11 PASSED: Modules integrate correctly")
     except Exception as e:
@@ -264,11 +265,11 @@ def test_11_module_integration():
 
 def run_all_tests():
     """Run all module tests."""
-    print("="*70)
+    print("=" * 70)
     print("SMARTGROCY MODULE TEST SUITE")
-    print("="*70)
+    print("=" * 70)
     print("Testing Modules 2, 3, 4 and Integration")
-    print("="*70)
+    print("=" * 70)
 
     tests = [
         test_01_inventory_optimizer_initialization,
@@ -281,7 +282,7 @@ def run_all_tests():
         test_08_rule_based_insight_generation,
         test_09_backtesting_initialization,
         test_10_backtesting_simulation,
-        test_11_module_integration
+        test_11_module_integration,
     ]
 
     results = []
@@ -294,14 +295,14 @@ def run_all_tests():
     passed_count = sum(results)
     total_count = len(results)
 
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("TEST SUMMARY")
-    print("="*70)
+    print("=" * 70)
     print(f"Total tests: {total_count}")
     print(f"✅ Passed: {passed_count}")
     print(f"❌ Failed: {total_count - passed_count}")
     print(f"Success rate: {passed_count/total_count*100:.0f}%")
-    print("="*70)
+    print("=" * 70)
 
     if passed_count == total_count:
         print("\n✅ ALL TESTS PASSED - Modules Ready for Production!")

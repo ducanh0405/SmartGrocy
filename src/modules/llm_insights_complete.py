@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class InsightConfig:
     """Configuration for insight generation."""
+
     use_llm: bool = False  # Enable LLM if API key available
     api_key: str | None = None
     batch_size: int = 10  # Process N products at a time
@@ -52,7 +53,7 @@ class CompleteLLMInsightGenerator:
         forecast_df: pd.DataFrame,
         inventory_df: pd.DataFrame,
         pricing_df: pd.DataFrame,
-        top_n: int = 10
+        top_n: int = 10,
     ) -> list[dict]:
         """
         Generate insights for top N products.
@@ -66,21 +67,21 @@ class CompleteLLMInsightGenerator:
         Returns:
             List of insight dictionaries
         """
-        logger.info("\n" + "="*70)
+        logger.info("\n" + "=" * 70)
         logger.info(f"GENERATING INSIGHTS FOR TOP {top_n} PRODUCTS")
-        logger.info("="*70)
+        logger.info("=" * 70)
 
         insights = []
 
         # Get top products by forecast volume
-        if 'forecast_q50' in forecast_df.columns:
-            top_products = forecast_df.nlargest(top_n, 'forecast_q50')
+        if "forecast_q50" in forecast_df.columns:
+            top_products = forecast_df.nlargest(top_n, "forecast_q50")
         else:
             top_products = forecast_df.head(top_n)
 
         for idx, row in top_products.iterrows():
             try:
-                product_id = row.get('product_id', f'PRODUCT_{idx}')
+                product_id = row.get("product_id", f"PRODUCT_{idx}")
 
                 # Gather data for this product
                 forecast_data = self._extract_forecast_data(row)
@@ -89,10 +90,7 @@ class CompleteLLMInsightGenerator:
 
                 # Generate insight
                 insight = self._generate_single_insight(
-                    product_id,
-                    forecast_data,
-                    inventory_data,
-                    pricing_data
+                    product_id, forecast_data, inventory_data, pricing_data
                 )
 
                 insights.append(insight)
@@ -103,18 +101,14 @@ class CompleteLLMInsightGenerator:
             except Exception as e:
                 logger.error(f"  ✗ Failed to generate insight for {product_id}: {e}")
 
-        logger.info("\n" + "="*70)
+        logger.info("\n" + "=" * 70)
         logger.info(f"✅ Generated {len(insights)} insights")
-        logger.info("="*70)
+        logger.info("=" * 70)
 
         return insights
 
     def _generate_single_insight(
-        self,
-        product_id: str,
-        forecast: dict,
-        inventory: dict,
-        pricing: dict
+        self, product_id: str, forecast: dict, inventory: dict, pricing: dict
     ) -> dict:
         """
         Generate comprehensive insight for single product.
@@ -123,23 +117,15 @@ class CompleteLLMInsightGenerator:
         # Try LLM first (if configured)
         if self.config.use_llm and self.config.api_key:
             try:
-                return self._generate_llm_insight(
-                    product_id, forecast, inventory, pricing
-                )
+                return self._generate_llm_insight(product_id, forecast, inventory, pricing)
             except Exception as e:
                 logger.warning(f"LLM generation failed: {e}, using rule-based")
 
         # Use enhanced rule-based (guaranteed to work)
-        return self._generate_enhanced_rule_based(
-            product_id, forecast, inventory, pricing
-        )
+        return self._generate_enhanced_rule_based(product_id, forecast, inventory, pricing)
 
     def _generate_enhanced_rule_based(
-        self,
-        product_id: str,
-        forecast: dict,
-        inventory: dict,
-        pricing: dict
+        self, product_id: str, forecast: dict, inventory: dict, pricing: dict
     ) -> dict:
         """
         Enhanced rule-based insight generation.
@@ -147,16 +133,16 @@ class CompleteLLMInsightGenerator:
         """
 
         # Extract key metrics
-        q50 = forecast.get('q50', 0)
-        uncertainty = forecast.get('uncertainty', 0)
+        q50 = forecast.get("q50", 0)
+        uncertainty = forecast.get("uncertainty", 0)
 
-        current_inventory = inventory.get('current_inventory', 0)
-        reorder_point = inventory.get('reorder_point', 0)
-        stockout_risk = inventory.get('stockout_risk_pct', 0)
+        current_inventory = inventory.get("current_inventory", 0)
+        reorder_point = inventory.get("reorder_point", 0)
+        stockout_risk = inventory.get("stockout_risk_pct", 0)
 
-        current_price = pricing.get('current_price', 0)
-        recommended_price = pricing.get('recommended_price', 0)
-        discount_pct = pricing.get('discount_pct', 0)
+        current_price = pricing.get("current_price", 0)
+        recommended_price = pricing.get("recommended_price", 0)
+        discount_pct = pricing.get("discount_pct", 0)
 
         # Build insight components
         components = []
@@ -171,9 +157,7 @@ class CompleteLLMInsightGenerator:
             )
             priority = "HIGH"
         else:
-            components.append(
-                f"Forecast is STABLE. Expected demand: {q50:.0f} units/day."
-            )
+            components.append(f"Forecast is STABLE. Expected demand: {q50:.0f} units/day.")
 
         # 2. Inventory insight
         if stockout_risk > 50:
@@ -234,19 +218,21 @@ class CompleteLLMInsightGenerator:
         insight_text = "".join(components)
 
         return {
-            'product_id': product_id,
-            'insight_text': insight_text,
-            'actions': actions,
-            'priority': priority,
-            'confidence': confidence,
-            'method': 'rule_based_enhanced',
-            'forecast_q50': q50,
-            'stockout_risk': stockout_risk,
-            'discount_recommended': discount_pct,
-            'timestamp': pd.Timestamp.now().isoformat()
+            "product_id": product_id,
+            "insight_text": insight_text,
+            "actions": actions,
+            "priority": priority,
+            "confidence": confidence,
+            "method": "rule_based_enhanced",
+            "forecast_q50": q50,
+            "stockout_risk": stockout_risk,
+            "discount_recommended": discount_pct,
+            "timestamp": pd.Timestamp.now().isoformat(),
         }
 
-    def _generate_llm_insight(self, product_id: str, forecast: dict, inventory: dict, pricing: dict) -> dict:
+    def _generate_llm_insight(
+        self, product_id: str, forecast: dict, inventory: dict, pricing: dict
+    ) -> dict:
         """Generate insight using LLM API (placeholder for actual implementation)."""
         # This would call actual LLM API
         # For now, fallback to rule-based
@@ -255,38 +241,38 @@ class CompleteLLMInsightGenerator:
     def _extract_forecast_data(self, row: pd.Series) -> dict:
         """Extract forecast data from row."""
         return {
-            'q50': row.get('forecast_q50', row.get('q50', 0)),
-            'q05': row.get('forecast_q05', row.get('q05', 0)),
-            'q95': row.get('forecast_q95', row.get('q95', 0)),
-            'uncertainty': row.get('forecast_q95', 0) - row.get('forecast_q50', 0)
+            "q50": row.get("forecast_q50", row.get("q50", 0)),
+            "q05": row.get("forecast_q05", row.get("q05", 0)),
+            "q95": row.get("forecast_q95", row.get("q95", 0)),
+            "uncertainty": row.get("forecast_q95", 0) - row.get("forecast_q50", 0),
         }
 
     def _extract_inventory_data(self, df: pd.DataFrame, product_id: str) -> dict:
         """Extract inventory data for product."""
-        if product_id in df['product_id'].values:
-            row = df[df['product_id'] == product_id].iloc[0]
+        if product_id in df["product_id"].values:
+            row = df[df["product_id"] == product_id].iloc[0]
             return row.to_dict()
         else:
             # Return defaults
             return {
-                'current_inventory': 100,
-                'reorder_point': 80,
-                'safety_stock': 30,
-                'stockout_risk_pct': 10
+                "current_inventory": 100,
+                "reorder_point": 80,
+                "safety_stock": 30,
+                "stockout_risk_pct": 10,
             }
 
     def _extract_pricing_data(self, df: pd.DataFrame, product_id: str) -> dict:
         """Extract pricing data for product."""
-        if product_id in df['product_id'].values:
-            row = df[df['product_id'] == product_id].iloc[0]
+        if product_id in df["product_id"].values:
+            row = df[df["product_id"] == product_id].iloc[0]
             return row.to_dict()
         else:
             # Return defaults
             return {
-                'current_price': 10000,
-                'recommended_price': 10000,
-                'discount_pct': 0,
-                'action': 'maintain'
+                "current_price": 10000,
+                "recommended_price": 10000,
+                "discount_pct": 0,
+                "action": "maintain",
             }
 
 
@@ -294,7 +280,7 @@ def generate_insights_for_all(
     forecast_df: pd.DataFrame,
     inventory_df: pd.DataFrame,
     pricing_df: pd.DataFrame,
-    output_path: str = 'reports/llm_insights.csv'
+    output_path: str = "reports/llm_insights.csv",
 ) -> pd.DataFrame:
     """
     Convenience function to generate insights and save.
@@ -306,9 +292,7 @@ def generate_insights_for_all(
     """
     generator = CompleteLLMInsightGenerator()
 
-    insights = generator.generate_batch_insights(
-        forecast_df, inventory_df, pricing_df, top_n=20
-    )
+    insights = generator.generate_batch_insights(forecast_df, inventory_df, pricing_df, top_n=20)
 
     insights_df = pd.DataFrame(insights)
     insights_df.to_csv(output_path, index=False)
@@ -331,37 +315,42 @@ if __name__ == "__main__":
     np.random.seed(42)
     n_products = 10
 
-    forecast_df = pd.DataFrame({
-        'product_id': [f'P{i:03d}' for i in range(n_products)],
-        'forecast_q50': np.random.randint(50, 200, n_products),
-        'forecast_q05': np.random.randint(30, 150, n_products),
-        'forecast_q95': np.random.randint(70, 250, n_products)
-    })
+    forecast_df = pd.DataFrame(
+        {
+            "product_id": [f"P{i:03d}" for i in range(n_products)],
+            "forecast_q50": np.random.randint(50, 200, n_products),
+            "forecast_q05": np.random.randint(30, 150, n_products),
+            "forecast_q95": np.random.randint(70, 250, n_products),
+        }
+    )
 
-    inventory_df = pd.DataFrame({
-        'product_id': [f'P{i:03d}' for i in range(n_products)],
-        'current_inventory': np.random.randint(50, 200, n_products),
-        'reorder_point': np.random.randint(70, 150, n_products),
-        'safety_stock': np.random.randint(20, 50, n_products),
-        'stockout_risk_pct': np.random.uniform(5, 80, n_products)
-    })
+    inventory_df = pd.DataFrame(
+        {
+            "product_id": [f"P{i:03d}" for i in range(n_products)],
+            "current_inventory": np.random.randint(50, 200, n_products),
+            "reorder_point": np.random.randint(70, 150, n_products),
+            "safety_stock": np.random.randint(20, 50, n_products),
+            "stockout_risk_pct": np.random.uniform(5, 80, n_products),
+        }
+    )
 
-    pricing_df = pd.DataFrame({
-        'product_id': [f'P{i:03d}' for i in range(n_products)],
-        'current_price': np.random.randint(5000, 15000, n_products),
-        'recommended_price': np.random.randint(4000, 15000, n_products),
-        'discount_pct': np.random.uniform(0, 0.3, n_products)
-    })
+    pricing_df = pd.DataFrame(
+        {
+            "product_id": [f"P{i:03d}" for i in range(n_products)],
+            "current_price": np.random.randint(5000, 15000, n_products),
+            "recommended_price": np.random.randint(4000, 15000, n_products),
+            "discount_pct": np.random.uniform(0, 0.3, n_products),
+        }
+    )
 
     # Generate insights
     insights_df = generate_insights_for_all(
-        forecast_df, inventory_df, pricing_df,
-        output_path='reports/test_insights.csv'
+        forecast_df, inventory_df, pricing_df, output_path="reports/test_insights.csv"
     )
 
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("SAMPLE INSIGHTS")
-    print("="*70)
+    print("=" * 70)
 
     for _idx, row in insights_df.head(3).iterrows():
         print(f"\n{'='*70}")
@@ -369,6 +358,6 @@ if __name__ == "__main__":
         print(f"Priority: {row['priority']}")
         print(f"Confidence: {row['confidence']:.1%}")
         print("\nInsight:")
-        print(row['insight_text'])
-        if row['actions']:
+        print(row["insight_text"])
+        if row["actions"]:
             print(f"\nActions: {row['actions']}")

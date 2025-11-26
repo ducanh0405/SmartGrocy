@@ -3,6 +3,7 @@ Validation Utilities
 ====================
 Comprehensive data validation functions for pipeline quality assurance.
 """
+
 import logging
 from typing import Any
 
@@ -13,18 +14,19 @@ import pandas as pd
 try:
     from src.config import DATA_QUALITY_CONFIG, setup_logging
     from src.utils.alerting import alert_manager
+
     setup_logging()
     logger = logging.getLogger(__name__)
 except ImportError:
     # Fallback
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
     logger = logging.getLogger(__name__)
     alert_manager = None
     DATA_QUALITY_CONFIG = {
-        'quality_thresholds': {
-            'excellent': 90,
-            'good': 75,
-            'fair': 60,
+        "quality_thresholds": {
+            "excellent": 90,
+            "good": 75,
+            "fair": 60,
         }
     }
 
@@ -46,7 +48,9 @@ def check_required_columns(df: pd.DataFrame, required_cols: list[str]) -> dict[s
     return results
 
 
-def validate_data_ranges(df: pd.DataFrame, column_ranges: dict[str, tuple] | None = None) -> dict[str, Any]:
+def validate_data_ranges(
+    df: pd.DataFrame, column_ranges: dict[str, tuple] | None = None
+) -> dict[str, Any]:
     """
     Validate that numeric columns are within expected ranges.
 
@@ -62,25 +66,25 @@ def validate_data_ranges(df: pd.DataFrame, column_ranges: dict[str, tuple] | Non
     if column_ranges is None:
         # Use defaults
         column_ranges = {
-            'SALES_VALUE': (0, None),  # Non-negative
-            'QUANTITY': (0, None),  # Non-negative
-            'sales_quantity': (0, None),  # Non-negative
-            'WEEK_NO': (1, 104),  # Typical week range
-            'discount_pct': (0, 1),  # 0-100%
+            "SALES_VALUE": (0, None),  # Non-negative
+            "QUANTITY": (0, None),  # Non-negative
+            "sales_quantity": (0, None),  # Non-negative
+            "WEEK_NO": (1, 104),  # Typical week range
+            "discount_pct": (0, 1),  # 0-100%
         }
 
     for col, (min_val, max_val) in column_ranges.items():
         if col not in df.columns:
             continue
 
-        if df[col].dtype in [np.int64, np.float64, 'int64', 'float64']:
+        if df[col].dtype in [np.int64, np.float64, "int64", "float64"]:
             if min_val is not None:
                 below_min = (df[col] < min_val).sum()
-                results[f'{col}_below_min'] = below_min
+                results[f"{col}_below_min"] = below_min
 
             if max_val is not None:
                 above_max = (df[col] > max_val).sum()
-                results[f'{col}_above_max'] = above_max
+                results[f"{col}_above_max"] = above_max
 
     return results
 
@@ -98,23 +102,25 @@ def check_feature_consistency(df: pd.DataFrame) -> dict[str, Any]:
     results = {}
 
     # Check if base_price calculation is consistent
-    if all(col in df.columns for col in ['SALES_VALUE', 'RETAIL_DISC', 'COUPON_DISC', 'base_price']):
-        calculated_base = df['SALES_VALUE'] - (df['RETAIL_DISC'] + df['COUPON_DISC'])
-        diff = (calculated_base - df['base_price']).abs()
+    if all(
+        col in df.columns for col in ["SALES_VALUE", "RETAIL_DISC", "COUPON_DISC", "base_price"]
+    ):
+        calculated_base = df["SALES_VALUE"] - (df["RETAIL_DISC"] + df["COUPON_DISC"])
+        diff = (calculated_base - df["base_price"]).abs()
         max_diff = diff.max()
-        results['base_price_consistency'] = {
-            'max_difference': float(max_diff) if not pd.isna(max_diff) else None,
-            'is_consistent': (diff < 1e-6).all() if not diff.isna().all() else None
+        results["base_price_consistency"] = {
+            "max_difference": float(max_diff) if not pd.isna(max_diff) else None,
+            "is_consistent": (diff < 1e-6).all() if not diff.isna().all() else None,
         }
 
     # Check if discount_pct is consistent
-    if all(col in df.columns for col in ['total_discount', 'base_price', 'discount_pct']):
-        calculated_pct = df['total_discount'] / (df['base_price'] + 1e-6)
-        diff = (calculated_pct - df['discount_pct']).abs()
+    if all(col in df.columns for col in ["total_discount", "base_price", "discount_pct"]):
+        calculated_pct = df["total_discount"] / (df["base_price"] + 1e-6)
+        diff = (calculated_pct - df["discount_pct"]).abs()
         max_diff = diff.max()
-        results['discount_pct_consistency'] = {
-            'max_difference': float(max_diff) if not pd.isna(max_diff) else None,
-            'is_consistent': (diff < 1e-6).all() if not diff.isna().all() else None
+        results["discount_pct_consistency"] = {
+            "max_difference": float(max_diff) if not pd.isna(max_diff) else None,
+            "is_consistent": (diff < 1e-6).all() if not diff.isna().all() else None,
         }
 
     return results
@@ -147,9 +153,9 @@ def comprehensive_validation(df: pd.DataFrame, verbose: bool = True) -> dict[str
     if verbose:
         logging.info("\n--- Basic Information ---")
 
-    validation_results['shape'] = df.shape
-    validation_results['memory_usage_mb'] = float(df.memory_usage(deep=True).sum() / 1024**2)
-    validation_results['dtypes'] = df.dtypes.astype(str).to_dict()
+    validation_results["shape"] = df.shape
+    validation_results["memory_usage_mb"] = float(df.memory_usage(deep=True).sum() / 1024**2)
+    validation_results["dtypes"] = df.dtypes.astype(str).to_dict()
 
     if verbose:
         logging.info(f"  Shape: {validation_results['shape']}")
@@ -161,9 +167,9 @@ def comprehensive_validation(df: pd.DataFrame, verbose: bool = True) -> dict[str
 
     missing_counts = df.isnull().sum()
     missing_pct = (missing_counts / len(df)) * 100
-    validation_results['missing_values'] = {
-        'counts': missing_counts[missing_counts > 0].to_dict(),
-        'percentages': missing_pct[missing_pct > 0].to_dict()
+    validation_results["missing_values"] = {
+        "counts": missing_counts[missing_counts > 0].to_dict(),
+        "percentages": missing_pct[missing_pct > 0].to_dict(),
     }
 
     # Initialize high_missing as empty Series to avoid NameError
@@ -177,14 +183,16 @@ def comprehensive_validation(df: pd.DataFrame, verbose: bool = True) -> dict[str
         total_missing = missing_counts.sum()
         logging.info(f"  Total missing values: {total_missing:,}")
         if total_missing > 0:
-            logging.info(f"  Columns with missing values: {len(missing_counts[missing_counts > 0])}")
+            logging.info(
+                f"  Columns with missing values: {len(missing_counts[missing_counts > 0])}"
+            )
 
     # 3. Duplicates
     if verbose:
         logging.info("\n--- Duplicates ---")
 
     duplicate_count = df.duplicated().sum()
-    validation_results['duplicates'] = int(duplicate_count)
+    validation_results["duplicates"] = int(duplicate_count)
 
     if duplicate_count > 0:
         issues.append(f"Found {duplicate_count} duplicate rows")
@@ -201,13 +209,16 @@ def comprehensive_validation(df: pd.DataFrame, verbose: bool = True) -> dict[str
     # Get required columns from dataset config if available, otherwise use defaults
     try:
         from src.config import get_dataset_config
+
         config = get_dataset_config()
-        required_cols = config.get('required_columns', ['product_id', 'store_id', 'hour_timestamp', 'sales_quantity'])
+        required_cols = config.get(
+            "required_columns", ["product_id", "store_id", "hour_timestamp", "sales_quantity"]
+        )
     except:
         # Fallback defaults
-        required_cols = ['product_id', 'store_id', 'hour_timestamp', 'sales_quantity']
+        required_cols = ["product_id", "store_id", "hour_timestamp", "sales_quantity"]
     col_check = check_required_columns(df, required_cols)
-    validation_results['required_columns'] = col_check
+    validation_results["required_columns"] = col_check
 
     missing_cols = [col for col, exists in col_check.items() if not exists]
     if missing_cols:
@@ -223,7 +234,7 @@ def comprehensive_validation(df: pd.DataFrame, verbose: bool = True) -> dict[str
         logging.info("\n--- Data Ranges ---")
 
     range_results = validate_data_ranges(df)
-    validation_results['data_ranges'] = range_results
+    validation_results["data_ranges"] = range_results
 
     if range_results:
         if verbose:
@@ -236,12 +247,12 @@ def comprehensive_validation(df: pd.DataFrame, verbose: bool = True) -> dict[str
         logging.info("\n--- Feature Consistency ---")
 
     consistency_results = check_feature_consistency(df)
-    validation_results['feature_consistency'] = consistency_results
+    validation_results["feature_consistency"] = consistency_results
 
     if consistency_results:
         for feature, result in consistency_results.items():
-            if isinstance(result, dict) and 'is_consistent' in result:
-                if result['is_consistent'] is False:
+            if isinstance(result, dict) and "is_consistent" in result:
+                if result["is_consistent"] is False:
                     issues.append(f"Inconsistent feature: {feature}")
                     if verbose:
                         logging.warning(f"  WARNING: Inconsistent {feature}")
@@ -255,24 +266,24 @@ def comprehensive_validation(df: pd.DataFrame, verbose: bool = True) -> dict[str
     if len(high_missing) > 0:  # High missing values already handled in issues
         score -= 10
 
-    validation_results['quality_score'] = max(0, score)
-    validation_results['issues'] = issues
-    validation_results['passed'] = len(issues) == 0 and len(missing_cols) == 0
+    validation_results["quality_score"] = max(0, score)
+    validation_results["issues"] = issues
+    validation_results["passed"] = len(issues) == 0 and len(missing_cols) == 0
 
     # 8. Summary and Alerting
-    quality_score = validation_results['quality_score']
-    dataset_name = getattr(df, '_dataset_name', 'unknown_dataset')  # Try to get dataset name
+    quality_score = validation_results["quality_score"]
+    dataset_name = getattr(df, "_dataset_name", "unknown_dataset")  # Try to get dataset name
 
     if verbose:
         logging.info("\n--- Validation Summary ---")
         logging.info(f"  Quality Score: {quality_score}/100")
 
-        thresholds = DATA_QUALITY_CONFIG.get('quality_thresholds', {})
-        if quality_score >= thresholds.get('excellent', 90):
+        thresholds = DATA_QUALITY_CONFIG.get("quality_thresholds", {})
+        if quality_score >= thresholds.get("excellent", 90):
             logging.info("  Status: EXCELLENT")
-        elif quality_score >= thresholds.get('good', 75):
+        elif quality_score >= thresholds.get("good", 75):
             logging.info("  Status: GOOD")
-        elif quality_score >= thresholds.get('fair', 60):
+        elif quality_score >= thresholds.get("fair", 60):
             logging.warning("  Status: FAIR")
         else:
             logging.error("  Status: POOR")
@@ -286,7 +297,7 @@ def comprehensive_validation(df: pd.DataFrame, verbose: bool = True) -> dict[str
 
     # Send alerts for quality issues
     if alert_manager and issues:
-        alert_threshold = DATA_QUALITY_CONFIG.get('alerting', {}).get('alert_on_quality_below', 70)
+        alert_threshold = DATA_QUALITY_CONFIG.get("alerting", {}).get("alert_on_quality_below", 70)
         if quality_score < alert_threshold:
             alert_manager.alert_data_quality_issue(dataset_name, quality_score, issues)
 

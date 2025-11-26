@@ -29,16 +29,20 @@ try:
         EnhancedInventoryOptimizer,
         InventoryMetrics,
     )
+
     ENHANCED_INV_AVAILABLE = True
 except ImportError:
     from src.modules.inventory_optimization import InventoryOptimizer
+
     ENHANCED_INV_AVAILABLE = False
 
 try:
     from src.modules.dynamic_pricing_enhanced import EnhancedPricingEngine, PricingMetrics
+
     ENHANCED_PRICE_AVAILABLE = True
 except ImportError:
     from src.modules.dynamic_pricing import DynamicPricingEngine
+
     ENHANCED_PRICE_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
@@ -66,10 +70,7 @@ class IntegratedInsightsGenerator:
             self.pricing_engine = DynamicPricingEngine()
             logger.info("Using Standard Pricing Engine")
 
-        self.insight_generator = LLMInsightGenerator(
-            use_llm_api=use_llm,
-            api_key=api_key
-        )
+        self.insight_generator = LLMInsightGenerator(use_llm_api=use_llm, api_key=api_key)
 
         logger.info("Integrated Insights Generator initialized")
 
@@ -81,7 +82,7 @@ class IntegratedInsightsGenerator:
         unit_cost: float,
         current_price: float,
         shap_values: dict | None = None,
-        max_retries: int = 3
+        max_retries: int = 3,
     ) -> dict:
         """
         Generate comprehensive validated insight.
@@ -112,20 +113,20 @@ class IntegratedInsightsGenerator:
         if not forecast_result.is_valid:
             logger.error(f"Forecast validation failed: {forecast_result.errors}")
             return self._generate_error_insight(
-                product_id,
-                "Invalid forecast data",
-                forecast_result.errors
+                product_id, "Invalid forecast data", forecast_result.errors
             )
 
         validated_forecast = forecast_result.validated_data
-        logger.debug(f"  [OK] Forecast validated (confidence: {validated_forecast['confidence_level']})")
+        logger.debug(
+            f"  [OK] Forecast validated (confidence: {validated_forecast['confidence_level']})"
+        )
 
         # STEP 2: Calculate inventory metrics (Module 2)
         logger.debug("Calculating inventory metrics...")
 
         try:
-            q50 = validated_forecast['q50']
-            uncertainty = validated_forecast.get('uncertainty', q50 * 0.2)
+            q50 = validated_forecast["q50"]
+            uncertainty = validated_forecast.get("uncertainty", q50 * 0.2)
             demand_std = uncertainty / 1.645  # Approximate std from 90% interval
 
             if ENHANCED_INV_AVAILABLE:
@@ -133,24 +134,29 @@ class IntegratedInsightsGenerator:
                     avg_daily_demand=q50,
                     demand_std=demand_std,
                     current_inventory=current_inventory,
-                    unit_cost=unit_cost
+                    unit_cost=unit_cost,
                 )
                 inventory_data = inventory_metrics.to_dict()
             else:
                 inventory_data = {
-                    'current_inventory': current_inventory,
-                    'safety_stock': 1.645 * demand_std * np.sqrt(7),
-                    'reorder_point': q50 * 7 + 1.645 * demand_std * np.sqrt(7),
-                    'should_reorder': current_inventory <= (q50 * 7 + 1.645 * demand_std * np.sqrt(7)),
-                    'stockout_risk_pct': 5.0,
-                    'overstock_risk_pct': 10.0
+                    "current_inventory": current_inventory,
+                    "safety_stock": 1.645 * demand_std * np.sqrt(7),
+                    "reorder_point": q50 * 7 + 1.645 * demand_std * np.sqrt(7),
+                    "should_reorder": current_inventory
+                    <= (q50 * 7 + 1.645 * demand_std * np.sqrt(7)),
+                    "stockout_risk_pct": 5.0,
+                    "overstock_risk_pct": 10.0,
                 }
 
             logger.debug("  [OK] Inventory metrics calculated")
 
         except Exception as e:
             logger.error(f"Inventory calculation failed: {e}")
-            inventory_data = {'current_inventory': current_inventory, 'safety_stock': 0, 'reorder_point': 0}
+            inventory_data = {
+                "current_inventory": current_inventory,
+                "safety_stock": 0,
+                "reorder_point": 0,
+            }
 
         # Validate inventory metrics
         inventory_result = MetricsValidator.validate_inventory_metrics(inventory_data)
@@ -163,7 +169,7 @@ class IntegratedInsightsGenerator:
 
         try:
             inv_ratio = current_inventory / q50 if q50 > 0 else 1.0
-            dem_ratio = validated_forecast.get('demand_ratio', 1.0)
+            dem_ratio = validated_forecast.get("demand_ratio", 1.0)
 
             if ENHANCED_PRICE_AVAILABLE:
                 pricing_metrics = self.pricing_engine.optimize_with_impact(
@@ -171,7 +177,7 @@ class IntegratedInsightsGenerator:
                     unit_cost=unit_cost,
                     current_demand=q50,
                     inventory_ratio=inv_ratio,
-                    demand_ratio=dem_ratio
+                    demand_ratio=dem_ratio,
                 )
                 pricing_data = pricing_metrics.to_dict()
             else:
@@ -179,7 +185,7 @@ class IntegratedInsightsGenerator:
                     current_price=current_price,
                     inventory_ratio=inv_ratio,
                     demand_ratio=dem_ratio,
-                    cost=unit_cost
+                    cost=unit_cost,
                 )
                 pricing_data = pricing_rec
 
@@ -187,7 +193,11 @@ class IntegratedInsightsGenerator:
 
         except Exception as e:
             logger.error(f"Pricing calculation failed: {e}")
-            pricing_data = {'current_price': current_price, 'recommended_price': current_price, 'action': 'maintain'}
+            pricing_data = {
+                "current_price": current_price,
+                "recommended_price": current_price,
+                "action": "maintain",
+            }
 
         # Validate pricing metrics
         pricing_result = MetricsValidator.validate_pricing_metrics(pricing_data)
@@ -203,24 +213,17 @@ class IntegratedInsightsGenerator:
         logger.debug("Generating insight...")
 
         insight = self._generate_with_retry(
-            product_id,
-            validated_forecast,
-            inventory_data,
-            pricing_data,
-            shap_data,
-            max_retries
+            product_id, validated_forecast, inventory_data, pricing_data, shap_data, max_retries
         )
 
         # Add validation summary
-        insight['validation_summary'] = {
-            'forecast_valid': forecast_result.is_valid,
-            'inventory_valid': inventory_result.is_valid,
-            'pricing_valid': pricing_result.is_valid,
-            'warnings': (
-                forecast_result.warnings +
-                inventory_result.warnings +
-                pricing_result.warnings
-            )
+        insight["validation_summary"] = {
+            "forecast_valid": forecast_result.is_valid,
+            "inventory_valid": inventory_result.is_valid,
+            "pricing_valid": pricing_result.is_valid,
+            "warnings": (
+                forecast_result.warnings + inventory_result.warnings + pricing_result.warnings
+            ),
         }
 
         logger.info(f"[SUCCESS] Insight generated for {product_id} (method: {insight['method']})")
@@ -234,7 +237,7 @@ class IntegratedInsightsGenerator:
         inventory_data: dict,
         pricing_data: dict,
         shap_values: dict,
-        max_retries: int
+        max_retries: int,
     ) -> dict:
         """Generate insight with retry logic."""
 
@@ -242,7 +245,6 @@ class IntegratedInsightsGenerator:
             return self.insight_generator._generate_rule_based_insight_comprehensive(
                 product_id, forecast_data, inventory_data, pricing_data, shap_values
             )
-
 
         for attempt in range(max_retries):
             try:
@@ -256,7 +258,7 @@ class IntegratedInsightsGenerator:
                 logger.warning(f"Attempt {attempt + 1} failed: {e}")
 
                 if attempt < max_retries - 1:
-                    wait_time = 2 ** attempt
+                    wait_time = 2**attempt
                     logger.debug(f"Waiting {wait_time}s before retry...")
                     time.sleep(wait_time)
 
@@ -268,11 +270,11 @@ class IntegratedInsightsGenerator:
     def _generate_error_insight(self, product_id: str, error: str, details: list) -> dict:
         """Generate error insight."""
         return {
-            'product_id': product_id,
-            'insight_text': f"ERROR: {error}\nDetails: {details}",
-            'method': 'error',
-            'confidence': 0.0,
-            'errors': details
+            "product_id": product_id,
+            "insight_text": f"ERROR: {error}\nDetails: {details}",
+            "method": "error",
+            "confidence": 0.0,
+            "errors": details,
         }
 
     def batch_generate(
@@ -282,27 +284,27 @@ class IntegratedInsightsGenerator:
         unit_costs: dict[str, float],
         current_prices: dict[str, float],
         shap_dict: dict[str, dict] | None = None,
-        top_n: int = 10
+        top_n: int = 10,
     ) -> pd.DataFrame:
         """Generate insights for top N products."""
 
         results = []
 
         # Get top products by forecast
-        top_products = forecasts_df.nlargest(top_n, 'forecast_q50')
+        top_products = forecasts_df.nlargest(top_n, "forecast_q50")
 
         for _, row in top_products.iterrows():
-            pid = row['product_id']
+            pid = row["product_id"]
 
             try:
                 forecast_data = {
-                    'q50': row['forecast_q50'],
-                    'q05': row.get('forecast_q05', row['forecast_q50'] * 0.8),
-                    'q95': row.get('forecast_q95', row['forecast_q50'] * 1.2)
+                    "q50": row["forecast_q50"],
+                    "q05": row.get("forecast_q05", row["forecast_q50"] * 0.8),
+                    "q95": row.get("forecast_q95", row["forecast_q50"] * 1.2),
                 }
 
-                inv_row = inventory_df[inventory_df['product_id'] == pid].iloc[0]
-                current_inv = inv_row['current_inventory']
+                inv_row = inventory_df[inventory_df["product_id"] == pid].iloc[0]
+                current_inv = inv_row["current_inventory"]
 
                 insight = self.generate_validated_insight(
                     pid,
@@ -310,7 +312,7 @@ class IntegratedInsightsGenerator:
                     current_inv,
                     unit_costs.get(pid, 5000),
                     current_prices.get(pid, 10000),
-                    shap_dict.get(pid) if shap_dict else None
+                    shap_dict.get(pid) if shap_dict else None,
                 )
 
                 results.append(insight)
@@ -326,24 +328,20 @@ if __name__ == "__main__":
 
     generator = IntegratedInsightsGenerator(use_llm=False)
 
-    forecast = {'q50': 150, 'q05': 100, 'q95': 200}
+    forecast = {"q50": 150, "q05": 100, "q95": 200}
 
     insight = generator.generate_validated_insight(
-        'TEST001',
-        forecast,
-        current_inventory=120,
-        unit_cost=30000,
-        current_price=50000
+        "TEST001", forecast, current_inventory=120, unit_cost=30000, current_price=50000
     )
 
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("INTEGRATED INSIGHT")
-    print("="*70)
+    print("=" * 70)
     try:
-        print(insight['insight_text'])
+        print(insight["insight_text"])
     except UnicodeEncodeError:
         # Handle Windows console encoding issues
-        clean_text = insight['insight_text'].encode('ascii', 'ignore').decode('ascii')
+        clean_text = insight["insight_text"].encode("ascii", "ignore").decode("ascii")
         print(clean_text)
     print(f"\nMethod: {insight['method']}")
     print(f"Confidence: {insight['confidence']:.1%}")

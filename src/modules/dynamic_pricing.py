@@ -32,6 +32,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class PricingConfig:
     """Configuration for dynamic pricing."""
+
     inventory_high_threshold: float = 2.0  # 200% of average = high
     inventory_critical_threshold: float = 3.0  # 300% = critical
     demand_low_threshold: float = 0.8  # 80% of forecast = low
@@ -53,9 +54,7 @@ class DynamicPricingEngine:
         logger.info("Dynamic Pricing Engine initialized")
 
     def calculate_discount(
-        self,
-        inventory_ratio: float,
-        demand_ratio: float
+        self, inventory_ratio: float, demand_ratio: float
     ) -> tuple[float, str, str]:
         """
         Calculate optimal discount based on inventory and demand ratios.
@@ -77,7 +76,11 @@ class DynamicPricingEngine:
             if demand_ratio <= self.config.demand_low_threshold:
                 # Worst case: High inventory + Low demand
                 discount = np.random.uniform(0.25, 0.40)
-                return discount, "large_discount", "High inventory with low demand - aggressive markdown"
+                return (
+                    discount,
+                    "large_discount",
+                    "High inventory with low demand - aggressive markdown",
+                )
             elif demand_ratio < self.config.demand_high_threshold:
                 # Medium case: High inventory + Normal demand
                 discount = np.random.uniform(0.15, 0.25)
@@ -85,7 +88,11 @@ class DynamicPricingEngine:
             else:
                 # High inventory + High demand
                 discount = np.random.uniform(self.config.min_discount, 0.15)
-                return discount, "small_discount", "High inventory but strong demand - minimal discount"
+                return (
+                    discount,
+                    "small_discount",
+                    "High inventory but strong demand - minimal discount",
+                )
 
         # Normal inventory
         if inventory_ratio >= self.config.inventory_high_threshold * 0.5:
@@ -103,7 +110,7 @@ class DynamicPricingEngine:
         inventory_ratio: float,
         demand_ratio: float,
         cost: float,
-        min_margin: float | None = None
+        min_margin: float | None = None,
     ) -> dict[str, any]:
         """
         Recommend optimal price for a product.
@@ -121,9 +128,7 @@ class DynamicPricingEngine:
         margin = min_margin or self.config.min_profit_margin
 
         # Calculate discount
-        discount_pct, action, reasoning = self.calculate_discount(
-            inventory_ratio, demand_ratio
-        )
+        discount_pct, action, reasoning = self.calculate_discount(inventory_ratio, demand_ratio)
 
         # Apply discount
         discount_amount = current_price * discount_pct
@@ -142,21 +147,18 @@ class DynamicPricingEngine:
         profit_margin = profit_per_unit / new_price if new_price > 0 else 0
 
         return {
-            'recommended_price': new_price,
-            'current_price': current_price,
-            'discount_pct': discount_pct,
-            'discount_amount': discount_amount,
-            'action': action,
-            'reasoning': reasoning,
-            'profit_margin': profit_margin,
-            'profit_per_unit': profit_per_unit,
-            'should_apply': discount_pct > 0
+            "recommended_price": new_price,
+            "current_price": current_price,
+            "discount_pct": discount_pct,
+            "discount_amount": discount_amount,
+            "action": action,
+            "reasoning": reasoning,
+            "profit_margin": profit_margin,
+            "profit_per_unit": profit_per_unit,
+            "should_apply": discount_pct > 0,
         }
 
-    def batch_optimize(
-        self,
-        pricing_df: pd.DataFrame
-    ) -> pd.DataFrame:
+    def batch_optimize(self, pricing_df: pd.DataFrame) -> pd.DataFrame:
         """
         Optimize pricing for multiple products.
 
@@ -176,12 +178,12 @@ class DynamicPricingEngine:
         for _, row in pricing_df.iterrows():
             try:
                 rec = self.recommend_price(
-                    current_price=row['current_price'],
-                    inventory_ratio=row['inventory_ratio'],
-                    demand_ratio=row['demand_ratio'],
-                    cost=row['cost']
+                    current_price=row["current_price"],
+                    inventory_ratio=row["inventory_ratio"],
+                    demand_ratio=row["demand_ratio"],
+                    cost=row["cost"],
                 )
-                rec['product_id'] = row['product_id']
+                rec["product_id"] = row["product_id"]
                 results.append(rec)
             except Exception as e:
                 logger.warning(f"Failed to optimize {row.get('product_id', 'unknown')}: {e}")
@@ -193,18 +195,48 @@ if __name__ == "__main__":
     # Test with sample data
     logging.basicConfig(level=logging.INFO)
 
-    test_data = pd.DataFrame([
-        {'product_id': 'P001', 'current_price': 10.0, 'inventory_ratio': 2.5, 'demand_ratio': 0.7, 'cost': 5.0},
-        {'product_id': 'P002', 'current_price': 12.0, 'inventory_ratio': 1.7, 'demand_ratio': 0.9, 'cost': 7.0},
-        {'product_id': 'P003', 'current_price': 9.0, 'inventory_ratio': 1.3, 'demand_ratio': 1.3, 'cost': 4.0},
-        {'product_id': 'P004', 'current_price': 8.0, 'inventory_ratio': 0.9, 'demand_ratio': 1.0, 'cost': 3.0},
-    ])
+    test_data = pd.DataFrame(
+        [
+            {
+                "product_id": "P001",
+                "current_price": 10.0,
+                "inventory_ratio": 2.5,
+                "demand_ratio": 0.7,
+                "cost": 5.0,
+            },
+            {
+                "product_id": "P002",
+                "current_price": 12.0,
+                "inventory_ratio": 1.7,
+                "demand_ratio": 0.9,
+                "cost": 7.0,
+            },
+            {
+                "product_id": "P003",
+                "current_price": 9.0,
+                "inventory_ratio": 1.3,
+                "demand_ratio": 1.3,
+                "cost": 4.0,
+            },
+            {
+                "product_id": "P004",
+                "current_price": 8.0,
+                "inventory_ratio": 0.9,
+                "demand_ratio": 1.0,
+                "cost": 3.0,
+            },
+        ]
+    )
 
     engine = DynamicPricingEngine()
     results = engine.batch_optimize(test_data)
 
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("DYNAMIC PRICING TEST RESULTS")
-    print("="*70)
-    print(results[['product_id', 'current_price', 'recommended_price', 'discount_pct', 'action']].to_string(index=False))
+    print("=" * 70)
+    print(
+        results[
+            ["product_id", "current_price", "recommended_price", "discount_pct", "action"]
+        ].to_string(index=False)
+    )
     print("\n✅ Module 3 - Dynamic Pricing Engine Ready")

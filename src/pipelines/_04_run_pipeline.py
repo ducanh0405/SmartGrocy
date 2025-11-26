@@ -11,7 +11,7 @@ setup_project_path()
 setup_logging()
 
 # Determine Project Root and Pipelines Directory
-PIPELINES_DIR = PROJECT_ROOT / 'src' / 'pipelines'
+PIPELINES_DIR = PROJECT_ROOT / "src" / "pipelines"
 
 
 def run_script(script_name, extra_args=None):
@@ -32,16 +32,16 @@ def run_script(script_name, extra_args=None):
 
     # Set up environment with proper PYTHONPATH
     env = dict(os.environ)
-    env['PYTHONPATH'] = str(PROJECT_ROOT)
+    env["PYTHONPATH"] = str(PROJECT_ROOT)
 
     process = subprocess.run(
         cmd,
         capture_output=True,
         text=True,
-        encoding='utf-8',
-        errors='replace',
+        encoding="utf-8",
+        errors="replace",
         cwd=PROJECT_ROOT,
-        env=env  # Pass environment variables with PYTHONPATH
+        env=env,  # Pass environment variables with PYTHONPATH
     )
 
     if process.returncode != 0:
@@ -61,9 +61,12 @@ def main():
     """
     Orchestrates the entire SmartGrocy project with optional memory optimizations.
     """
-    parser = argparse.ArgumentParser(description='Run full SmartGrocy pipeline')
-    parser.add_argument('--full-data', action='store_true',
-                       help='Use full data from data/2_raw with memory optimizations (32GB RAM recommended)')
+    parser = argparse.ArgumentParser(description="Run full SmartGrocy pipeline")
+    parser.add_argument(
+        "--full-data",
+        action="store_true",
+        help="Use full data from data/2_raw with memory optimizations (32GB RAM recommended)",
+    )
     args = parser.parse_args()
 
     logging.info("=" * 70)
@@ -80,24 +83,24 @@ def main():
         logging.info("=" * 70)
 
         # Set environment variable for downstream scripts
-        os.environ['DATA_SOURCE'] = 'full'
-        os.environ['USE_PANDAS_ONLY'] = '1'
-        os.environ['FORCE_OPTIMIZED_GRID'] = '1'
+        os.environ["DATA_SOURCE"] = "full"
+        os.environ["USE_PANDAS_ONLY"] = "1"
+        os.environ["FORCE_OPTIMIZED_GRID"] = "1"
     else:
         logging.info("📊 STANDARD MODE")
         logging.info("   - Auto-detect best data source (prioritizes data/2_raw)")
         logging.info("=" * 70)
 
     # Prepare extra args for feature enrichment
-    extra_args = ['--full-data'] if args.full_data else None
+    extra_args = ["--full-data"] if args.full_data else None
 
     # Step 1: Data Processing
-    if not run_script('_02_feature_enrichment.py', extra_args):
+    if not run_script("_02_feature_enrichment.py", extra_args):
         logging.critical("Data processing pipeline failed. Halting workflow.")
         sys.exit(1)
 
     # Step 2: Model Training
-    if not run_script('_03_model_training.py'):
+    if not run_script("_03_model_training.py"):
         logging.critical("Model training pipeline failed. Halting workflow.")
         sys.exit(1)
 

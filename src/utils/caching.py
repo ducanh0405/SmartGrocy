@@ -4,6 +4,7 @@ Caching Layer for Pipeline Optimization
 Provides intelligent caching for expensive operations with disk persistence.
 Supports incremental processing and memory-efficient operations.
 """
+
 import hashlib
 import logging
 from collections.abc import Callable
@@ -32,21 +33,17 @@ class PipelineCache:
             cache_dir: Directory for cache storage
             max_size_gb: Maximum cache size in GB
         """
-        self.cache_dir = cache_dir or (PROJECT_ROOT / 'cache')
+        self.cache_dir = cache_dir or (PROJECT_ROOT / "cache")
         self.cache_dir.mkdir(exist_ok=True)
 
         # Initialize disk cache
         self.cache = dc.Cache(
             directory=str(self.cache_dir),
-            size_limit=int(max_size_gb * 1024**3)  # Convert GB to bytes
+            size_limit=int(max_size_gb * 1024**3),  # Convert GB to bytes
         )
 
         # Cache statistics
-        self.stats = {
-            'hits': 0,
-            'misses': 0,
-            'saves': 0
-        }
+        self.stats = {"hits": 0, "misses": 0, "saves": 0}
 
         logger.info(f"Pipeline cache initialized at: {self.cache_dir}")
 
@@ -63,11 +60,7 @@ class PipelineCache:
             Cache key string
         """
         # Create hash of function signature
-        key_data = {
-            'func': func_name,
-            'args': str(args),
-            'kwargs': str(sorted(kwargs.items()))
-        }
+        key_data = {"func": func_name, "args": str(args), "kwargs": str(sorted(kwargs.items()))}
 
         key_str = str(key_data)
         return hashlib.md5(key_str.encode()).hexdigest()
@@ -85,11 +78,11 @@ class PipelineCache:
         try:
             result = self.cache.get(key)
             if result is not None:
-                self.stats['hits'] += 1
+                self.stats["hits"] += 1
                 logger.debug(f"Cache hit: {key}")
                 return result
             else:
-                self.stats['misses'] += 1
+                self.stats["misses"] += 1
                 logger.debug(f"Cache miss: {key}")
                 return None
         except Exception as e:
@@ -107,7 +100,7 @@ class PipelineCache:
         """
         try:
             self.cache.set(key, value, expire=expire)
-            self.stats['saves'] += 1
+            self.stats["saves"] += 1
             logger.debug(f"Cache set: {key}")
         except Exception as e:
             logger.warning(f"Cache set error: {e}")
@@ -122,6 +115,7 @@ class PipelineCache:
         Returns:
             Decorated function
         """
+
         def decorator(func: Callable):
             @wraps(func)
             def wrapper(*args, **kwargs):
@@ -144,6 +138,7 @@ class PipelineCache:
                 return result
 
             return wrapper
+
         return decorator
 
     def clear_expired(self):
@@ -158,7 +153,7 @@ class PipelineCache:
         """Clear all cache entries."""
         try:
             self.cache.clear()
-            self.stats = {'hits': 0, 'misses': 0, 'saves': 0}
+            self.stats = {"hits": 0, "misses": 0, "saves": 0}
             logger.info("All cache entries cleared")
         except Exception as e:
             logger.warning(f"Cache clear error: {e}")
@@ -172,15 +167,15 @@ class PipelineCache:
         """
         try:
             cache_info = {
-                'cache_size_mb': len(self.cache) / 1024**2,
-                'cache_dir': str(self.cache_dir),
-                'stats': self.stats.copy(),
-                'hit_rate': self.stats['hits'] / max(self.stats['hits'] + self.stats['misses'], 1)
+                "cache_size_mb": len(self.cache) / 1024**2,
+                "cache_dir": str(self.cache_dir),
+                "stats": self.stats.copy(),
+                "hit_rate": self.stats["hits"] / max(self.stats["hits"] + self.stats["misses"], 1),
             }
             return cache_info
         except Exception as e:
             logger.warning(f"Cache stats error: {e}")
-            return {'error': str(e)}
+            return {"error": str(e)}
 
 
 class IncrementalProcessor:
@@ -213,10 +208,10 @@ class IncrementalProcessor:
 
         if state is None:
             state = {
-                'last_processed_timestamp': None,
-                'processed_rows': 0,
-                'chunks_processed': 0,
-                'last_chunk_hash': None
+                "last_processed_timestamp": None,
+                "processed_rows": 0,
+                "chunks_processed": 0,
+                "last_chunk_hash": None,
             }
 
         return state
@@ -234,11 +229,13 @@ class IncrementalProcessor:
         current_state.update(updates)
         self.cache.set(state_key, current_state)
 
-    def process_incremental(self,
-                          df: pd.DataFrame,
-                          dataset_name: str,
-                          chunk_size: int = 10000,
-                          force_reprocess: bool = False) -> pd.DataFrame:
+    def process_incremental(
+        self,
+        df: pd.DataFrame,
+        dataset_name: str,
+        chunk_size: int = 10000,
+        force_reprocess: bool = False,
+    ) -> pd.DataFrame:
         """
         Process dataframe incrementally with intelligent caching.
 
@@ -258,16 +255,16 @@ class IncrementalProcessor:
         # Check if full reprocessing is needed
         current_hash = hashlib.md5(str(df.shape + tuple(df.dtypes)).encode()).hexdigest()
 
-        if force_reprocess or state['last_chunk_hash'] != current_hash:
+        if force_reprocess or state["last_chunk_hash"] != current_hash:
             logger.info("Data changed or forced reprocess, full reprocessing required")
             # Clear old chunks
             self._clear_old_chunks(dataset_name)
             state = {
-                'last_processed_timestamp': None,
-                'processed_rows': 0,
-                'chunks_processed': 0,
-                'last_chunk_hash': current_hash,
-                'total_chunks': 0
+                "last_processed_timestamp": None,
+                "processed_rows": 0,
+                "chunks_processed": 0,
+                "last_chunk_hash": current_hash,
+                "total_chunks": 0,
             }
 
         # Process in chunks with progress tracking
@@ -279,7 +276,7 @@ class IncrementalProcessor:
         logger.info(f"Processing {total_chunks} chunks (chunk_size={chunk_size})")
 
         for i in range(0, len(df), chunk_size):
-            chunk = df.iloc[i:i+chunk_size]
+            chunk = df.iloc[i : i + chunk_size]
             chunk_id = f"{dataset_name}_chunk_{i//chunk_size}"
             chunk_idx = i // chunk_size + 1
 
@@ -298,11 +295,11 @@ class IncrementalProcessor:
 
                     # Cache processed chunk with metadata
                     chunk_metadata = {
-                        'data': processed_chunk,
-                        'chunk_index': chunk_idx,
-                        'processed_at': pd.Timestamp.now().isoformat(),
-                        'original_shape': chunk.shape,
-                        'processed_shape': processed_chunk.shape
+                        "data": processed_chunk,
+                        "chunk_index": chunk_idx,
+                        "processed_at": pd.Timestamp.now().isoformat(),
+                        "original_shape": chunk.shape,
+                        "processed_shape": processed_chunk.shape,
                     }
                     self.cache.set(chunk_id, chunk_metadata)
 
@@ -320,21 +317,28 @@ class IncrementalProcessor:
 
                 # Validate final result
                 if len(final_result) != len(df):
-                    logger.warning(f"Row count mismatch: expected {len(df)}, got {len(final_result)}")
+                    logger.warning(
+                        f"Row count mismatch: expected {len(df)}, got {len(final_result)}"
+                    )
 
                 # Update state
-                self.update_processing_state(dataset_name, {
-                    'processed_rows': len(final_result),
-                    'chunks_processed': len(results),
-                    'cached_chunks': cached_chunks,
-                    'newly_processed_chunks': processed_chunks,
-                    'last_processed_timestamp': pd.Timestamp.now().isoformat(),
-                    'total_chunks': total_chunks,
-                    'cache_hit_rate': cached_chunks / total_chunks if total_chunks > 0 else 0
-                })
+                self.update_processing_state(
+                    dataset_name,
+                    {
+                        "processed_rows": len(final_result),
+                        "chunks_processed": len(results),
+                        "cached_chunks": cached_chunks,
+                        "newly_processed_chunks": processed_chunks,
+                        "last_processed_timestamp": pd.Timestamp.now().isoformat(),
+                        "total_chunks": total_chunks,
+                        "cache_hit_rate": cached_chunks / total_chunks if total_chunks > 0 else 0,
+                    },
+                )
 
                 logger.info(f"Incremental processing complete: {len(final_result)} rows")
-                logger.info(f"Cache hit rate: {cached_chunks}/{total_chunks} chunks ({cached_chunks/total_chunks*100:.1f}%)")
+                logger.info(
+                    f"Cache hit rate: {cached_chunks}/{total_chunks} chunks ({cached_chunks/total_chunks*100:.1f}%)"
+                )
 
                 return final_result
 
@@ -377,14 +381,14 @@ class IncrementalProcessor:
 
         # Calculate additional metrics
         stats = {
-            'dataset_name': dataset_name,
-            'total_rows_processed': state.get('processed_rows', 0),
-            'chunks_processed': state.get('chunks_processed', 0),
-            'cached_chunks_used': state.get('cached_chunks', 0),
-            'new_chunks_processed': state.get('newly_processed_chunks', 0),
-            'cache_hit_rate': state.get('cache_hit_rate', 0),
-            'last_processed': state.get('last_processed_timestamp'),
-            'data_fingerprint': state.get('last_chunk_hash', 'none')
+            "dataset_name": dataset_name,
+            "total_rows_processed": state.get("processed_rows", 0),
+            "chunks_processed": state.get("chunks_processed", 0),
+            "cached_chunks_used": state.get("cached_chunks", 0),
+            "new_chunks_processed": state.get("newly_processed_chunks", 0),
+            "cache_hit_rate": state.get("cache_hit_rate", 0),
+            "last_processed": state.get("last_processed_timestamp"),
+            "data_fingerprint": state.get("last_chunk_hash", "none"),
         }
 
         return stats

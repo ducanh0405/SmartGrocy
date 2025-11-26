@@ -3,6 +3,7 @@ Performance Monitoring Module
 ============================
 Monitors pipeline performance, identifies bottlenecks, and provides optimization recommendations.
 """
+
 import logging
 import threading
 import time
@@ -70,7 +71,7 @@ class PerformanceMonitor:
         while self.monitoring_active:
             try:
                 metrics = self._collect_system_metrics()
-                metrics['timestamp'] = datetime.now().isoformat()
+                metrics["timestamp"] = datetime.now().isoformat()
                 self.current_session.append(metrics)
 
                 time.sleep(1)  # Collect metrics every second
@@ -110,16 +111,16 @@ class PerformanceMonitor:
                 net_sent_mb = net_recv_mb = 0
 
             metrics = {
-                'cpu_percent': cpu_percent,
-                'cpu_count': cpu_count,
-                'cpu_freq_mhz': cpu_freq.current if cpu_freq else 0,
-                'memory_percent': memory_percent,
-                'memory_used_gb': memory_used_gb,
-                'memory_available_gb': memory_available_gb,
-                'disk_read_mb': disk_read_mb,
-                'disk_write_mb': disk_write_mb,
-                'net_sent_mb': net_sent_mb,
-                'net_recv_mb': net_recv_mb
+                "cpu_percent": cpu_percent,
+                "cpu_count": cpu_count,
+                "cpu_freq_mhz": cpu_freq.current if cpu_freq else 0,
+                "memory_percent": memory_percent,
+                "memory_used_gb": memory_used_gb,
+                "memory_available_gb": memory_available_gb,
+                "disk_read_mb": disk_read_mb,
+                "disk_write_mb": disk_write_mb,
+                "net_sent_mb": net_sent_mb,
+                "net_recv_mb": net_recv_mb,
             }
 
             return metrics
@@ -149,19 +150,21 @@ class PerformanceMonitor:
             duration = end_time - start_time
 
             operation_record = {
-                'operation_name': operation_name,
-                'start_time': datetime.fromtimestamp(start_time).isoformat(),
-                'end_time': datetime.fromtimestamp(end_time).isoformat(),
-                'duration_seconds': duration,
-                'start_metrics': start_metrics,
-                'end_metrics': end_metrics,
-                'metadata': metadata or {}
+                "operation_name": operation_name,
+                "start_time": datetime.fromtimestamp(start_time).isoformat(),
+                "end_time": datetime.fromtimestamp(end_time).isoformat(),
+                "duration_seconds": duration,
+                "start_metrics": start_metrics,
+                "end_metrics": end_metrics,
+                "metadata": metadata or {},
             }
 
             self.current_session.append(operation_record)
             logger.debug(f"Timed operation '{operation_name}': {duration:.2f}s")
 
-    def record_operation(self, operation_name: str, duration: float, metadata: dict[str, Any] | None = None):
+    def record_operation(
+        self, operation_name: str, duration: float, metadata: dict[str, Any] | None = None
+    ):
         """
         Record an operation manually.
 
@@ -171,10 +174,10 @@ class PerformanceMonitor:
             metadata: Additional metadata
         """
         operation_record = {
-            'operation_name': operation_name,
-            'timestamp': datetime.now().isoformat(),
-            'duration_seconds': duration,
-            'metadata': metadata or {}
+            "operation_name": operation_name,
+            "timestamp": datetime.now().isoformat(),
+            "duration_seconds": duration,
+            "metadata": metadata or {},
         }
 
         self.current_session.append(operation_record)
@@ -187,32 +190,34 @@ class PerformanceMonitor:
         session_df = pd.DataFrame(self.current_session)
 
         # Filter out operation records for system metrics analysis
-        system_metrics = session_df[session_df['timestamp'].notna() & session_df['cpu_percent'].notna()]
+        system_metrics = session_df[
+            session_df["timestamp"].notna() & session_df["cpu_percent"].notna()
+        ]
 
         analysis = {
-            'session_duration': time.time() - self.session_start_time,
-            'total_measurements': len(system_metrics),
-            'operations_count': len(session_df) - len(system_metrics)
+            "session_duration": time.time() - self.session_start_time,
+            "total_measurements": len(system_metrics),
+            "operations_count": len(session_df) - len(system_metrics),
         }
 
         if not system_metrics.empty:
             # CPU analysis
-            analysis['cpu_avg_percent'] = system_metrics['cpu_percent'].mean()
-            analysis['cpu_max_percent'] = system_metrics['cpu_percent'].max()
-            analysis['cpu_std_percent'] = system_metrics['cpu_percent'].std()
+            analysis["cpu_avg_percent"] = system_metrics["cpu_percent"].mean()
+            analysis["cpu_max_percent"] = system_metrics["cpu_percent"].max()
+            analysis["cpu_std_percent"] = system_metrics["cpu_percent"].std()
 
             # Memory analysis
-            analysis['memory_avg_percent'] = system_metrics['memory_percent'].mean()
-            analysis['memory_max_percent'] = system_metrics['memory_percent'].max()
-            analysis['memory_avg_used_gb'] = system_metrics['memory_used_gb'].mean()
+            analysis["memory_avg_percent"] = system_metrics["memory_percent"].mean()
+            analysis["memory_max_percent"] = system_metrics["memory_percent"].max()
+            analysis["memory_avg_used_gb"] = system_metrics["memory_used_gb"].mean()
 
             # Performance bottlenecks
-            analysis['bottlenecks'] = self._identify_bottlenecks(system_metrics)
+            analysis["bottlenecks"] = self._identify_bottlenecks(system_metrics)
 
         # Operation analysis
-        operations = session_df[session_df['operation_name'].notna()]
+        operations = session_df[session_df["operation_name"].notna()]
         if not operations.empty:
-            analysis['operation_stats'] = self._analyze_operations(operations)
+            analysis["operation_stats"] = self._analyze_operations(operations)
 
         return analysis
 
@@ -221,21 +226,21 @@ class PerformanceMonitor:
         bottlenecks = []
 
         # High CPU usage
-        if metrics_df['cpu_percent'].mean() > 80:
+        if metrics_df["cpu_percent"].mean() > 80:
             bottlenecks.append("High CPU usage detected")
 
         # High memory usage
-        if metrics_df['memory_percent'].mean() > 85:
+        if metrics_df["memory_percent"].mean() > 85:
             bottlenecks.append("High memory usage detected")
 
         # Memory spikes
-        memory_std = metrics_df['memory_percent'].std()
+        memory_std = metrics_df["memory_percent"].std()
         if memory_std > 10:
             bottlenecks.append("Memory usage spikes detected")
 
         # CPU frequency drops (throttling)
-        if 'cpu_freq_mhz' in metrics_df.columns:
-            freq_changes = metrics_df['cpu_freq_mhz'].pct_change().abs()
+        if "cpu_freq_mhz" in metrics_df.columns:
+            freq_changes = metrics_df["cpu_freq_mhz"].pct_change().abs()
             if freq_changes.mean() > 0.1:
                 bottlenecks.append("CPU frequency changes indicate possible throttling")
 
@@ -246,25 +251,25 @@ class PerformanceMonitor:
         stats = {}
 
         # Group by operation name
-        operation_groups = operations_df.groupby('operation_name')
+        operation_groups = operations_df.groupby("operation_name")
 
         for op_name, group in operation_groups:
-            durations = group['duration_seconds']
+            durations = group["duration_seconds"]
             stats[op_name] = {
-                'count': len(group),
-                'total_time': durations.sum(),
-                'avg_time': durations.mean(),
-                'max_time': durations.max(),
-                'min_time': durations.min(),
-                'std_time': durations.std()
+                "count": len(group),
+                "total_time": durations.sum(),
+                "avg_time": durations.mean(),
+                "max_time": durations.max(),
+                "min_time": durations.min(),
+                "std_time": durations.std(),
             }
 
         # Find slowest operations
         if stats:
-            slowest_op = max(stats.items(), key=lambda x: x[1]['avg_time'])
-            stats['_slowest_operation'] = {
-                'name': slowest_op[0],
-                'avg_time': slowest_op[1]['avg_time']
+            slowest_op = max(stats.items(), key=lambda x: x[1]["avg_time"])
+            stats["_slowest_operation"] = {
+                "name": slowest_op[0],
+                "avg_time": slowest_op[1]["avg_time"],
             }
 
         return stats
@@ -272,21 +277,22 @@ class PerformanceMonitor:
     def _save_session_data(self, session_summary: dict[str, Any]):
         """Save session data to disk."""
         try:
-            perf_dir = PROJECT_ROOT / 'reports' / 'performance'
+            perf_dir = PROJECT_ROOT / "reports" / "performance"
             perf_dir.mkdir(exist_ok=True)
 
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
             # Save detailed session data
-            session_file = perf_dir / f'perf_session_{timestamp}.json'
+            session_file = perf_dir / f"perf_session_{timestamp}.json"
             session_data = {
-                'session_summary': session_summary,
-                'raw_metrics': self.current_session,
-                'timestamp': timestamp
+                "session_summary": session_summary,
+                "raw_metrics": self.current_session,
+                "timestamp": timestamp,
             }
 
             import json
-            with open(session_file, 'w') as f:
+
+            with open(session_file, "w") as f:
                 json.dump(session_data, f, indent=2, default=str)
 
             # Save summary to history
@@ -314,23 +320,29 @@ class PerformanceMonitor:
         # Analyze recent sessions
         recent_sessions = self.metrics_history[-5:]  # Last 5 sessions
 
-        avg_cpu = np.mean([s.get('cpu_avg_percent', 0) for s in recent_sessions])
-        avg_memory = np.mean([s.get('memory_avg_percent', 0) for s in recent_sessions])
+        avg_cpu = np.mean([s.get("cpu_avg_percent", 0) for s in recent_sessions])
+        avg_memory = np.mean([s.get("memory_avg_percent", 0) for s in recent_sessions])
 
         if avg_cpu > 90:
-            recommendations.append("Consider increasing CPU cores or optimizing CPU-intensive operations")
+            recommendations.append(
+                "Consider increasing CPU cores or optimizing CPU-intensive operations"
+            )
         elif avg_cpu > 70:
-            recommendations.append("Monitor CPU usage - consider parallelization if not already implemented")
+            recommendations.append(
+                "Monitor CPU usage - consider parallelization if not already implemented"
+            )
 
         if avg_memory > 90:
-            recommendations.append("High memory usage detected - consider memory optimization or more RAM")
+            recommendations.append(
+                "High memory usage detected - consider memory optimization or more RAM"
+            )
         elif avg_memory > 80:
             recommendations.append("Memory usage is high - monitor for potential leaks")
 
         # Check for bottlenecks across sessions
         all_bottlenecks = []
         for session in recent_sessions:
-            all_bottlenecks.extend(session.get('bottlenecks', []))
+            all_bottlenecks.extend(session.get("bottlenecks", []))
 
         if all_bottlenecks:
             bottleneck_counts = pd.Series(all_bottlenecks).value_counts()
@@ -340,11 +352,13 @@ class PerformanceMonitor:
 
         # Operation-specific recommendations
         for session in recent_sessions:
-            op_stats = session.get('operation_stats', {})
-            if '_slowest_operation' in op_stats:
-                slow_op = op_stats['_slowest_operation']
-                if slow_op['avg_time'] > 300:  # More than 5 minutes
-                    recommendations.append(f"Optimize slow operation: {slow_op['name']} ({slow_op['avg_time']:.1f}s avg)")
+            op_stats = session.get("operation_stats", {})
+            if "_slowest_operation" in op_stats:
+                slow_op = op_stats["_slowest_operation"]
+                if slow_op["avg_time"] > 300:  # More than 5 minutes
+                    recommendations.append(
+                        f"Optimize slow operation: {slow_op['name']} ({slow_op['avg_time']:.1f}s avg)"
+                    )
 
         if not recommendations:
             recommendations.append("Performance looks good - no major issues detected")
@@ -360,19 +374,19 @@ class PerformanceMonitor:
         """
         try:
             system_info = {
-                'cpu_count': psutil.cpu_count(),
-                'cpu_count_logical': psutil.cpu_count(logical=True),
-                'memory_total_gb': psutil.virtual_memory().total / (1024**3),
-                'disk_total_gb': psutil.disk_usage('/').total / (1024**3),
-                'platform': psutil.platform(),
-                'python_version': __import__('sys').version
+                "cpu_count": psutil.cpu_count(),
+                "cpu_count_logical": psutil.cpu_count(logical=True),
+                "memory_total_gb": psutil.virtual_memory().total / (1024**3),
+                "disk_total_gb": psutil.disk_usage("/").total / (1024**3),
+                "platform": psutil.platform(),
+                "python_version": __import__("sys").version,
             }
 
             # CPU frequency info
             cpu_freq = psutil.cpu_freq()
             if cpu_freq:
-                system_info['cpu_freq_min'] = cpu_freq.min
-                system_info['cpu_freq_max'] = cpu_freq.max
+                system_info["cpu_freq_min"] = cpu_freq.min
+                system_info["cpu_freq_max"] = cpu_freq.max
 
             return system_info
 

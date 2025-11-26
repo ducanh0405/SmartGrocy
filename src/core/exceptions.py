@@ -9,6 +9,7 @@ from typing import Any
 
 class SmartGrocyException(Exception):
     """Base exception for SmartGrocy"""
+
     pass
 
 
@@ -48,6 +49,7 @@ class ValidationError(SmartGrocyException):
 
 class ConfigurationError(SmartGrocyException):
     """Exception raised for configuration issues"""
+
     pass
 
 
@@ -57,4 +59,3 @@ class DataQualityError(SmartGrocyException):
     def __init__(self, message: str, quality_score: float = None):
         super().__init__(message)
         self.quality_score = quality_score
-

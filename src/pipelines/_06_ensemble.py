@@ -3,6 +3,7 @@ Ensemble Models Pipeline
 ========================
 Meta-models that combine quantile predictions for improved forecasting.
 """
+
 import logging
 
 import numpy as np
@@ -46,25 +47,35 @@ class EnsembleForecaster:
             Series with ensemble forecasts
         """
         # Check available quantiles
-        available_cols = [col for col in ['forecast_q05', 'forecast_q10', 'forecast_q25',
-                                        'forecast_q50', 'forecast_q75', 'forecast_q90', 'forecast_q95']
-                         if col in predictions_df.columns]
+        available_cols = [
+            col
+            for col in [
+                "forecast_q05",
+                "forecast_q10",
+                "forecast_q25",
+                "forecast_q50",
+                "forecast_q75",
+                "forecast_q90",
+                "forecast_q95",
+            ]
+            if col in predictions_df.columns
+        ]
 
         if len(available_cols) < 3:
             logger.warning(f"Only {len(available_cols)} quantiles available, using simple average")
             # Fallback to simple average of available quantiles
-            quantile_cols = [col for col in predictions_df.columns if col.startswith('forecast_q')]
+            quantile_cols = [col for col in predictions_df.columns if col.startswith("forecast_q")]
             return predictions_df[quantile_cols].mean(axis=1)
 
         # Define weights for ensemble (emphasize Q50, balance others)
         weights = {
-            'forecast_q05': 0.1,   # 10% - conservative
-            'forecast_q10': 0.1,   # 10% - slightly conservative
-            'forecast_q25': 0.2,   # 20% - moderately conservative
-            'forecast_q50': 0.4,   # 40% - main estimate
-            'forecast_q75': 0.15,  # 15% - moderately optimistic
-            'forecast_q90': 0.025, # 2.5% - slightly optimistic
-            'forecast_q95': 0.025  # 2.5% - very optimistic
+            "forecast_q05": 0.1,  # 10% - conservative
+            "forecast_q10": 0.1,  # 10% - slightly conservative
+            "forecast_q25": 0.2,  # 20% - moderately conservative
+            "forecast_q50": 0.4,  # 40% - main estimate
+            "forecast_q75": 0.15,  # 15% - moderately optimistic
+            "forecast_q90": 0.025,  # 2.5% - slightly optimistic
+            "forecast_q95": 0.025,  # 2.5% - very optimistic
         }
 
         # Only use available quantiles
@@ -72,13 +83,14 @@ class EnsembleForecaster:
 
         # Normalize weights
         total_weight = sum(available_weights.values())
-        normalized_weights = {k: v/total_weight for k, v in available_weights.items()}
+        normalized_weights = {k: v / total_weight for k, v in available_weights.items()}
 
         logger.info(f"Ensemble weights: {normalized_weights}")
 
         # Calculate weighted average
-        ensemble_pred = sum(predictions_df[col] * weight
-                           for col, weight in normalized_weights.items())
+        ensemble_pred = sum(
+            predictions_df[col] * weight for col, weight in normalized_weights.items()
+        )
 
         return ensemble_pred
 
@@ -95,14 +107,20 @@ class EnsembleForecaster:
             Series with uncertainty-weighted forecasts
         """
         # Calculate sharpness (inverse of interval width)
-        if 'prediction_interval' in predictions_df.columns:
-            sharpness = 1 / (predictions_df['prediction_interval'] + 1e-6)
+        if "prediction_interval" in predictions_df.columns:
+            sharpness = 1 / (predictions_df["prediction_interval"] + 1e-6)
         else:
             # Calculate from available quantiles
-            upper_cols = [col for col in predictions_df.columns if col.startswith('forecast_q') and
-                         float(col.split('_q')[1]) > 50]  # Upper quantiles
-            lower_cols = [col for col in predictions_df.columns if col.startswith('forecast_q') and
-                         float(col.split('_q')[1]) < 50]  # Lower quantiles
+            upper_cols = [
+                col
+                for col in predictions_df.columns
+                if col.startswith("forecast_q") and float(col.split("_q")[1]) > 50
+            ]  # Upper quantiles
+            lower_cols = [
+                col
+                for col in predictions_df.columns
+                if col.startswith("forecast_q") and float(col.split("_q")[1]) < 50
+            ]  # Lower quantiles
 
             if upper_cols and lower_cols:
                 # Approximate interval width
@@ -115,10 +133,10 @@ class EnsembleForecaster:
                 sharpness = np.ones(len(predictions_df))
 
         # Use Q50 as base prediction, or average if not available
-        if 'forecast_q50' in predictions_df.columns:
-            base_prediction = predictions_df['forecast_q50']
+        if "forecast_q50" in predictions_df.columns:
+            base_prediction = predictions_df["forecast_q50"]
         else:
-            quantile_cols = [col for col in predictions_df.columns if col.startswith('forecast_q')]
+            quantile_cols = [col for col in predictions_df.columns if col.startswith("forecast_q")]
             base_prediction = predictions_df[quantile_cols].mean(axis=1)
 
         # Weight by sharpness (normalized)
@@ -150,7 +168,7 @@ class EnsembleForecaster:
         ensemble_pred = self.ensemble_forecast(quantile_preds)
 
         # Add to results
-        quantile_preds['ensemble_forecast'] = ensemble_pred
+        quantile_preds["ensemble_forecast"] = ensemble_pred
 
         logger.info(f"Ensemble predictions generated. Shape: {quantile_preds.shape}")
 
@@ -175,7 +193,7 @@ class EnsembleForecaster:
         uncertainty_pred = self.uncertainty_weighted_forecast(quantile_preds)
 
         # Add to results
-        quantile_preds['uncertainty_weighted_forecast'] = uncertainty_pred
+        quantile_preds["uncertainty_weighted_forecast"] = uncertainty_pred
 
         logger.info(f"Uncertainty-weighted predictions generated. Shape: {quantile_preds.shape}")
 
@@ -193,6 +211,7 @@ def main() -> None:
 
     # Setup project path and logging
     from src.config import OUTPUT_FILES, setup_logging, setup_project_path
+
     setup_project_path()
     setup_logging()
 
@@ -202,11 +221,11 @@ def main() -> None:
 
     # Load data
     logger.info("Loading master feature table...")
-    df = pd.read_parquet(OUTPUT_FILES['master_feature_table'])
+    df = pd.read_parquet(OUTPUT_FILES["master_feature_table"])
 
     # Use test set (last 20% of time period - same as prediction pipeline)
-    test_cutoff = df['hour_timestamp'].quantile(0.8)
-    df_test = df[df['hour_timestamp'] >= test_cutoff].copy()
+    test_cutoff = df["hour_timestamp"].quantile(0.8)
+    df_test = df[df["hour_timestamp"] >= test_cutoff].copy()
     logger.info(f"Predicting for {len(df_test)} test records")
 
     # Initialize forecasters
@@ -220,7 +239,7 @@ def main() -> None:
     ensemble_predictions = ensemble_forecaster.predict_ensemble(df_test)
 
     # Save results
-    output_path = OUTPUT_FILES['reports_dir'] / 'ensemble_predictions.csv'
+    output_path = OUTPUT_FILES["reports_dir"] / "ensemble_predictions.csv"
     ensemble_predictions.to_csv(output_path, index=False)
     logger.info(f"✅ Ensemble predictions saved to: {output_path}")
 
@@ -236,6 +255,7 @@ def main() -> None:
 if __name__ == "__main__":
     # Setup project path and logging
     from src.config import OUTPUT_FILES, setup_logging, setup_project_path
+
     setup_project_path()
     setup_logging()
 
@@ -249,11 +269,11 @@ if __name__ == "__main__":
 
     # Load data
     logger.info("Loading master feature table...")
-    df = pd.read_parquet(OUTPUT_FILES['master_feature_table'])
+    df = pd.read_parquet(OUTPUT_FILES["master_feature_table"])
 
     # Use test set (last 20% of time period - same as prediction pipeline)
-    test_cutoff = df['hour_timestamp'].quantile(0.8)
-    df_test = df[df['hour_timestamp'] >= test_cutoff].copy()
+    test_cutoff = df["hour_timestamp"].quantile(0.8)
+    df_test = df[df["hour_timestamp"] >= test_cutoff].copy()
     logger.info(f"Predicting for {len(df_test)} test records")
 
     # Initialize forecasters
@@ -267,7 +287,7 @@ if __name__ == "__main__":
     ensemble_predictions = ensemble_forecaster.predict_ensemble(df_test)
 
     # Save results
-    output_path = OUTPUT_FILES['reports_dir'] / 'ensemble_predictions.csv'
+    output_path = OUTPUT_FILES["reports_dir"] / "ensemble_predictions.csv"
     ensemble_predictions.to_csv(output_path, index=False)
     logger.info(f"✅ Ensemble predictions saved to: {output_path}")
 
@@ -277,7 +297,10 @@ if __name__ == "__main__":
     print("=" * 70)
     print(f"\nTotal predictions: {len(ensemble_predictions)}")
     print("\nForecast statistics:")
-    print(ensemble_predictions[['forecast_q50', 'ensemble_forecast']].describe())
+    print(ensemble_predictions[["forecast_q50", "ensemble_forecast"]].describe())
     print("\nSample predictions:")
-    print(ensemble_predictions[['product_id', 'store_id', 'hour_timestamp',
-                                'forecast_q50', 'ensemble_forecast']].head(10))
+    print(
+        ensemble_predictions[
+            ["product_id", "store_id", "hour_timestamp", "forecast_q50", "ensemble_forecast"]
+        ].head(10)
+    )

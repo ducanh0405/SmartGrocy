@@ -4,4 +4,4 @@
 # Import key classes for easy access
 from ._06_ensemble import EnsembleForecaster
 
-__all__ = ['EnsembleForecaster']
+__all__ = ["EnsembleForecaster"]

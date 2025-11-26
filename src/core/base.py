@@ -3,6 +3,7 @@ Base Classes for SmartGrocy
 ===========================
 Abstract base classes and interfaces for pipelines, modules, and configurations.
 """
+
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -12,6 +13,7 @@ from typing import Any
 @dataclass
 class BaseConfig(ABC):
     """Base configuration class"""
+
     name: str
     description: str = ""
 
@@ -21,7 +23,7 @@ class BaseConfig(ABC):
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary"""
-        return {k: v for k, v in self.__dict__.items() if not k.startswith('_')}
+        return {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
 
 
 class BasePipeline(ABC):
@@ -34,7 +36,7 @@ class BasePipeline(ABC):
 
     def _validate_setup(self) -> None:
         """Validate pipeline setup"""
-        if self.config and hasattr(self.config, 'validate'):
+        if self.config and hasattr(self.config, "validate"):
             if not self.config.validate():
                 raise ValueError(f"Invalid configuration for {self.__class__.__name__}")
 
@@ -80,4 +82,3 @@ class BaseModule(ABC):
     def validate_output(self, output: Any) -> bool:
         """Validate output data"""
         return True
-

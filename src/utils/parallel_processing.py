@@ -14,6 +14,7 @@ Usage:
         n_jobs=12
     )
 """
+
 import logging
 from collections.abc import Callable
 
@@ -30,7 +31,7 @@ def parallel_groupby_apply(
     func: Callable,
     n_jobs: int = -1,
     verbose: int = 1,
-    **kwargs
+    **kwargs,
 ) -> pd.DataFrame:
     """
     Apply function to each group in parallel using joblib.
@@ -84,25 +85,25 @@ def parallel_groupby_apply(
     # Try 'multiprocessing' first (faster for CPU-intensive tasks)
     # Fallback to 'threading' if multiprocessing fails (e.g., on Windows with nested functions)
     # Includes proper exception handling to prevent silent failures
-    backend = 'multiprocessing'
+    backend = "multiprocessing"
     try:
         results = Parallel(n_jobs=n_jobs, verbose=verbose, backend=backend)(
-            delayed(func)(group_df.copy(), **kwargs)
-            for _, group_df in groups
+            delayed(func)(group_df.copy(), **kwargs) for _, group_df in groups
         )
     except Exception as e:
         logger.warning(f"Multiprocessing backend failed ({e}), trying threading backend...")
-        backend = 'threading'
+        backend = "threading"
         try:
             results = Parallel(n_jobs=n_jobs, verbose=verbose, backend=backend)(
-                delayed(func)(group_df.copy(), **kwargs)
-                for _, group_df in groups
+                delayed(func)(group_df.copy(), **kwargs) for _, group_df in groups
             )
         except Exception as e2:
             logger.error("Both multiprocessing and threading backends failed!")
             logger.error(f"  Multiprocessing error: {e}")
             logger.error(f"  Threading error: {e2}")
-            raise RuntimeError(f"Parallel processing failed with both backends. Last error: {e2}") from e2
+            raise RuntimeError(
+                f"Parallel processing failed with both backends. Last error: {e2}"
+            ) from e2
 
     # Combine results
     if not results:
@@ -121,7 +122,7 @@ def parallel_chunk_apply(
     chunk_size: int = 10000,
     n_jobs: int = -1,
     verbose: int = 1,
-    **kwargs
+    **kwargs,
 ) -> pd.DataFrame:
     """
     Split DataFrame into chunks and process in parallel.
@@ -143,18 +144,18 @@ def parallel_chunk_apply(
     n_chunks = (len(df) + chunk_size - 1) // chunk_size
     logger.info(f"Processing {len(df):,} rows in {n_chunks} chunks with {n_jobs} jobs...")
 
-    chunks = [df.iloc[i:i+chunk_size].copy() for i in range(0, len(df), chunk_size)]
+    chunks = [df.iloc[i : i + chunk_size].copy() for i in range(0, len(df), chunk_size)]
 
     # Try multiprocessing first, fallback to threading if needed
     # Includes proper exception handling to prevent silent failures
-    backend = 'multiprocessing'
+    backend = "multiprocessing"
     try:
         results = Parallel(n_jobs=n_jobs, verbose=verbose, backend=backend)(
             delayed(func)(chunk, **kwargs) for chunk in chunks
         )
     except Exception as e:
         logger.warning(f"Multiprocessing backend failed ({e}), trying threading backend...")
-        backend = 'threading'
+        backend = "threading"
         try:
             results = Parallel(n_jobs=n_jobs, verbose=verbose, backend=backend)(
                 delayed(func)(chunk, **kwargs) for chunk in chunks
@@ -163,7 +164,9 @@ def parallel_chunk_apply(
             logger.error("Both multiprocessing and threading backends failed!")
             logger.error(f"  Multiprocessing error: {e}")
             logger.error(f"  Threading error: {e2}")
-            raise RuntimeError(f"Chunk processing failed with both backends. Last error: {e2}") from e2
+            raise RuntimeError(
+                f"Chunk processing failed with both backends. Last error: {e2}"
+            ) from e2
 
     if not results:
         logger.error("No results returned from chunk processing!")
@@ -180,7 +183,7 @@ def parallel_column_apply(
     columns: list[str] = None,
     n_jobs: int = -1,
     verbose: int = 1,
-    **kwargs
+    **kwargs,
 ) -> pd.DataFrame:
     """
     Apply function to multiple columns in parallel.
@@ -206,14 +209,14 @@ def parallel_column_apply(
 
     # Try multiprocessing first, fallback to threading if needed
     # Includes proper exception handling to prevent silent failures
-    backend = 'multiprocessing'
+    backend = "multiprocessing"
     try:
         results = Parallel(n_jobs=n_jobs, verbose=verbose, backend=backend)(
             delayed(func)(df, col, **kwargs) for col in columns
         )
     except Exception as e:
         logger.warning(f"Multiprocessing backend failed ({e}), trying threading backend...")
-        backend = 'threading'
+        backend = "threading"
         try:
             results = Parallel(n_jobs=n_jobs, verbose=verbose, backend=backend)(
                 delayed(func)(df, col, **kwargs) for col in columns
@@ -222,7 +225,9 @@ def parallel_column_apply(
             logger.error("Both multiprocessing and threading backends failed!")
             logger.error(f"  Multiprocessing error: {e}")
             logger.error(f"  Threading error: {e2}")
-            raise RuntimeError(f"Column processing failed with both backends. Last error: {e2}") from e2
+            raise RuntimeError(
+                f"Column processing failed with both backends. Last error: {e2}"
+            ) from e2
 
     # Add results as new columns
     result_df = df.copy()
@@ -232,4 +237,3 @@ def parallel_column_apply(
 
     logger.info(f"Column processing complete: {len(result_df):,} rows")
     return result_df
-

@@ -3,6 +3,7 @@ Tests for Optional Dependencies Handling
 ========================================
 Tests that optional dependencies (CatBoost, Great Expectations) fail gracefully.
 """
+
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -20,6 +21,7 @@ class TestCatBoostHandling:
     def test_catboost_not_available_flag(self):
         """Test that CATBOOST_AVAILABLE flag exists."""
         from src.pipelines._03_model_training import CATBOOST_AVAILABLE
+
         assert isinstance(CATBOOST_AVAILABLE, bool)
 
     def test_catboost_import_error_handled(self):
@@ -28,6 +30,7 @@ class TestCatBoostHandling:
         # This is tested by importing the module
         try:
             from src.pipelines._03_model_training import CATBOOST_AVAILABLE, cb
+
             # If cb is None, that's fine - it means import failed
             assert CATBOOST_AVAILABLE is False or cb is not None
         except ImportError:
@@ -43,7 +46,7 @@ class TestCatBoostHandling:
 
         # Try to create CatBoost model - should raise ImportError if not available
         with pytest.raises((ImportError, RuntimeError)):
-            model, _ = create_model('catboost', 0.5, [])
+            model, _ = create_model("catboost", 0.5, [])
 
 
 class TestGreatExpectationsHandling:
@@ -52,12 +55,14 @@ class TestGreatExpectationsHandling:
     def test_gx_available_flag(self):
         """Test that GX_AVAILABLE flag exists."""
         from src.utils.data_quality_gx import GX_AVAILABLE
+
         assert isinstance(GX_AVAILABLE, bool)
 
     def test_gx_import_error_handled(self):
         """Test that GX import error is handled gracefully."""
         try:
             from src.utils.data_quality_gx import GX_AVAILABLE, gx
+
             # If gx is None, that's fine - it means import failed
             assert GX_AVAILABLE is False or gx is not None
         except ImportError:
@@ -79,12 +84,12 @@ class TestGreatExpectationsHandling:
         from src.utils.data_quality_gx import DataQualityValidator
 
         validator = DataQualityValidator()
-        test_df = pd.DataFrame({'col1': [1, 2, 3]})
+        test_df = pd.DataFrame({"col1": [1, 2, 3]})
 
         # Should return a result dict even if GX unavailable
         result = validator.validate(test_df, fail_on_error=False)
         assert isinstance(result, dict)
-        assert 'success' in result or 'error' in result
+        assert "success" in result or "error" in result
 
     def test_gx_data_quality_monitor(self):
         """Test that DataQualityMonitor handles missing GX."""
@@ -94,7 +99,7 @@ class TestGreatExpectationsHandling:
         # Should not crash even if GX is unavailable
         assert monitor is not None
 
-    @patch('src.utils.data_quality.HAS_GREAT_EXPECTATIONS', False)
+    @patch("src.utils.data_quality.HAS_GREAT_EXPECTATIONS", False)
     def test_gx_create_expectation_suite_returns_none(self):
         """Test that create_expectation_suite returns None when GX unavailable."""
         import pandas as pd
@@ -102,9 +107,9 @@ class TestGreatExpectationsHandling:
         from src.utils.data_quality import DataQualityMonitor
 
         monitor = DataQualityMonitor()
-        test_df = pd.DataFrame({'col1': [1, 2, 3]})
+        test_df = pd.DataFrame({"col1": [1, 2, 3]})
 
-        suite = monitor.create_expectation_suite(test_df, 'test_dataset')
+        suite = monitor.create_expectation_suite(test_df, "test_dataset")
         # Should return None when GX unavailable
         assert suite is None
 
@@ -120,10 +125,10 @@ class TestErrorMessages:
 
         # Try to create model when unavailable
         try:
-            model, _ = create_model('catboost', 0.5, [])
+            model, _ = create_model("catboost", 0.5, [])
         except ImportError as e:
             # Error message should be informative
-            assert 'CatBoost' in str(e) or 'catboost' in str(e).lower()
+            assert "CatBoost" in str(e) or "catboost" in str(e).lower()
         except RuntimeError:
             # Also acceptable
             pass
@@ -135,16 +140,15 @@ class TestErrorMessages:
         from src.utils.data_quality_gx import DataQualityValidator
 
         validator = DataQualityValidator()
-        test_df = pd.DataFrame({'col1': [1, 2, 3]})
+        test_df = pd.DataFrame({"col1": [1, 2, 3]})
 
         # Try validation - should get informative error if fails
         result = validator.validate(test_df, fail_on_error=False)
-        if not result.get('success', True):
-            error_msg = result.get('error', '')
+        if not result.get("success", True):
+            error_msg = result.get("error", "")
             # Error should mention GX or Great Expectations
             assert len(error_msg) > 0  # Should have some error message
 
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-

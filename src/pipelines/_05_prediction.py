@@ -3,6 +3,7 @@ Quantile Prediction Pipeline với SHAP Values
 =============================================
 Prediction pipeline với hỗ trợ nhiều models và SHAP explanation.
 """
+
 import logging
 import sys
 import warnings
@@ -25,6 +26,7 @@ try:
         setup_logging,
         setup_project_path,
     )
+
     setup_project_path()
     setup_logging()
     ensure_directories()
@@ -47,12 +49,13 @@ import pandas as pd
 # SHAP imports
 try:
     import shap
+
     SHAP_AVAILABLE = True
 except ImportError:
     SHAP_AVAILABLE = False
     warnings.warn("SHAP not available. Install with: pip install shap", stacklevel=2)
 
-warnings.filterwarnings('ignore')
+warnings.filterwarnings("ignore")
 
 
 class QuantileForecaster:
@@ -67,8 +70,8 @@ class QuantileForecaster:
         Args:
             model_types: List các model types để load. Nếu None, load tất cả models có sẵn.
         """
-        self.model_types = model_types or TRAINING_CONFIG.get('model_types', ['lightgbm'])
-        self.quantiles = TRAINING_CONFIG['quantiles']
+        self.model_types = model_types or TRAINING_CONFIG.get("model_types", ["lightgbm"])
+        self.quantiles = TRAINING_CONFIG["quantiles"]
         self.models = {}  # {model_type: {quantile: model}}
         self.feature_names = None
         self.categorical_features = None
@@ -85,21 +88,23 @@ class QuantileForecaster:
             models_dir: Directory chứa models. Nếu None, dùng OUTPUT_FILES['models_dir'].
         """
         if models_dir is None:
-            models_dir = OUTPUT_FILES['models_dir']
+            models_dir = OUTPUT_FILES["models_dir"]
 
         logger.info(f"Loading models from: {models_dir}")
 
         # Load model_features.json để lấy feature names
-        features_path = OUTPUT_FILES['model_features']
+        features_path = OUTPUT_FILES["model_features"]
         if features_path.exists():
             with open(features_path) as f:
                 features_config = json.load(f)
-                self.feature_names = features_config.get('all_features', [])
-                self.categorical_features = features_config.get('categorical_features', [])
-                self.categorical_categories = features_config.get('categorical_categories', {})
+                self.feature_names = features_config.get("all_features", [])
+                self.categorical_features = features_config.get("categorical_features", [])
+                self.categorical_categories = features_config.get("categorical_categories", {})
                 logger.info(f"Loaded {len(self.feature_names)} features")
                 logger.info(f"Loaded {len(self.categorical_features)} categorical features")
-                logger.info(f"Loaded categories for {len(self.categorical_categories)} categorical features")
+                logger.info(
+                    f"Loaded categories for {len(self.categorical_categories)} categorical features"
+                )
         else:
             logger.warning(f"Model features config not found: {features_path}")
 
@@ -167,24 +172,26 @@ class QuantileForecaster:
                     categories = self.categorical_categories[col]
                     try:
                         # Ensure column is category dtype first
-                        if not hasattr(X[col], 'cat'):
-                            X.loc[:, col] = X[col].astype('category')
+                        if not hasattr(X[col], "cat"):
+                            X.loc[:, col] = X[col].astype("category")
                         X.loc[:, col] = X[col].cat.set_categories(categories)
                     except (ValueError, AttributeError) as e:
                         # Nếu categories không compatible, chỉ convert to category
-                        X.loc[:, col] = X[col].astype('category')
-                        logger.warning(f"Could not set categories for {col}: {e}, using default categories")
+                        X.loc[:, col] = X[col].astype("category")
+                        logger.warning(
+                            f"Could not set categories for {col}: {e}, using default categories"
+                        )
                 else:
-                    X.loc[:, col] = X[col].astype('category')
+                    X.loc[:, col] = X[col].astype("category")
 
                 # Fill missing categories với 'Unknown' nếu có
                 if X[col].isnull().any():
                     # Ensure column is category dtype before using .cat accessor
-                    if not hasattr(X[col], 'cat'):
-                        X.loc[:, col] = X[col].astype('category')
-                    if 'Unknown' not in X[col].cat.categories:
-                        X.loc[:, col] = X[col].cat.add_categories(['Unknown'])
-                    X.loc[:, col] = X[col].fillna('Unknown')
+                    if not hasattr(X[col], "cat"):
+                        X.loc[:, col] = X[col].astype("category")
+                    if "Unknown" not in X[col].cat.categories:
+                        X.loc[:, col] = X[col].cat.add_categories(["Unknown"])
+                    X.loc[:, col] = X[col].fillna("Unknown")
 
         return X
 
@@ -206,7 +213,9 @@ class QuantileForecaster:
             model_type = self.model_types[0]
 
         if model_type not in self.models:
-            raise ValueError(f"Model type '{model_type}' not loaded. Available: {list(self.models.keys())}")
+            raise ValueError(
+                f"Model type '{model_type}' not loaded. Available: {list(self.models.keys())}"
+            )
 
         logger.info(f"Generating predictions using {model_type} models...")
 
@@ -222,7 +231,7 @@ class QuantileForecaster:
                 model = models[quantile]
                 y_pred = model.predict(X)
                 y_pred = np.maximum(y_pred, 0)  # Clip negative predictions
-                predictions[f'forecast_q{int(quantile*100):02d}'] = y_pred
+                predictions[f"forecast_q{int(quantile*100):02d}"] = y_pred
             else:
                 logger.warning(f"Model for Q{int(quantile*100):02d} not found. Skipping.")
 
@@ -230,17 +239,24 @@ class QuantileForecaster:
         if len(self.quantiles) >= 2:
             lower_q = min(self.quantiles)
             upper_q = max(self.quantiles)
-            lower_col = f'forecast_q{int(lower_q*100):02d}'
-            upper_col = f'forecast_q{int(upper_q*100):02d}'
+            lower_col = f"forecast_q{int(lower_q*100):02d}"
+            upper_col = f"forecast_q{int(upper_q*100):02d}"
             if lower_col in predictions.columns and upper_col in predictions.columns:
-                predictions['prediction_interval'] = predictions[upper_col] - predictions[lower_col]
-                predictions['prediction_center'] = (predictions[upper_col] + predictions[lower_col]) / 2
+                predictions["prediction_interval"] = predictions[upper_col] - predictions[lower_col]
+                predictions["prediction_center"] = (
+                    predictions[upper_col] + predictions[lower_col]
+                ) / 2
 
         logger.info(f"Generated predictions for {len(predictions)} samples")
         return predictions
 
-    def predict_shap(self, df: pd.DataFrame, model_type: str | None = None,
-                    sample_size: int | None = None, quantile: float = 0.50) -> tuple[pd.DataFrame, dict]:
+    def predict_shap(
+        self,
+        df: pd.DataFrame,
+        model_type: str | None = None,
+        sample_size: int | None = None,
+        quantile: float = 0.50,
+    ) -> tuple[pd.DataFrame, dict]:
         """
         Generate predictions với SHAP values.
 
@@ -263,7 +279,9 @@ class QuantileForecaster:
             model_type = self.model_types[0]
 
         if model_type not in self.models:
-            raise ValueError(f"Model type '{model_type}' not loaded. Available: {list(self.models.keys())}")
+            raise ValueError(
+                f"Model type '{model_type}' not loaded. Available: {list(self.models.keys())}"
+            )
 
         if quantile not in self.models[model_type]:
             raise ValueError(f"Model for quantile {quantile} not found.")
@@ -274,7 +292,7 @@ class QuantileForecaster:
         X = self.prepare_features(df)
 
         # Sample data nếu cần
-        sample_size = sample_size or SHAP_CONFIG.get('sample_size', 1000)
+        sample_size = sample_size or SHAP_CONFIG.get("sample_size", 1000)
         if len(X) > sample_size:
             sample_idx = np.random.choice(len(X), sample_size, replace=False)
             X_sample = X.iloc[sample_idx].copy()
@@ -289,7 +307,7 @@ class QuantileForecaster:
         # Tính SHAP values
         try:
             # TreeExplainer cho tree-based models
-            if model_type in ['lightgbm', 'catboost', 'random_forest']:
+            if model_type in ["lightgbm", "catboost", "random_forest"]:
                 explainer = shap.TreeExplainer(model)
                 shap_values = explainer.shap_values(X_sample)
 
@@ -298,11 +316,7 @@ class QuantileForecaster:
                     shap_values = shap_values[0]  # Lấy giá trị đầu tiên nếu là list
 
                 # Tạo DataFrame SHAP values
-                shap_df = pd.DataFrame(
-                    shap_values,
-                    columns=X_sample.columns,
-                    index=X_sample.index
-                )
+                shap_df = pd.DataFrame(shap_values, columns=X_sample.columns, index=X_sample.index)
 
                 # Tính base value
                 base_value = explainer.expected_value
@@ -314,12 +328,12 @@ class QuantileForecaster:
 
                 # Tạo SHAP summary
                 shap_summary = {
-                    'shap_values': shap_df,
-                    'base_value': base_value,
-                    'feature_names': X_sample.columns.tolist(),
-                    'sample_indices': sample_idx.tolist(),
-                    'model_type': model_type,
-                    'quantile': quantile,
+                    "shap_values": shap_df,
+                    "base_value": base_value,
+                    "feature_names": X_sample.columns.tolist(),
+                    "sample_indices": sample_idx.tolist(),
+                    "model_type": model_type,
+                    "quantile": quantile,
                 }
 
                 return X_sample, shap_summary
@@ -330,8 +344,9 @@ class QuantileForecaster:
             logger.error(f"Error calculating SHAP values: {e}")
             raise
 
-    def predict_with_shap(self, df: pd.DataFrame, model_type: str | None = None,
-                         sample_size: int | None = None) -> dict[str, Any]:
+    def predict_with_shap(
+        self, df: pd.DataFrame, model_type: str | None = None, sample_size: int | None = None
+    ) -> dict[str, Any]:
         """
         Generate predictions và SHAP values cùng lúc.
 
@@ -354,19 +369,20 @@ class QuantileForecaster:
             )
 
             return {
-                'predictions': predictions,
-                'shap_values': shap_summary,
+                "predictions": predictions,
+                "shap_values": shap_summary,
             }
         except Exception as e:
             logger.warning(f"Could not generate SHAP values: {e}")
             return {
-                'predictions': predictions,
-                'shap_values': None,
+                "predictions": predictions,
+                "shap_values": None,
             }
 
 
-def evaluate_predictions(predictions: pd.DataFrame, y_true: pd.Series,
-                        quantiles: list[float]) -> dict[str, float]:
+def evaluate_predictions(
+    predictions: pd.DataFrame, y_true: pd.Series, quantiles: list[float]
+) -> dict[str, float]:
     """
     Evaluate predictions với nhiều metrics.
 
@@ -390,55 +406,58 @@ def evaluate_predictions(predictions: pd.DataFrame, y_true: pd.Series,
 
     # Metrics cho từng quantile
     for quantile in quantiles:
-        col = f'forecast_q{int(quantile*100):02d}'
+        col = f"forecast_q{int(quantile*100):02d}"
         if col in predictions.columns:
             y_pred = predictions[col]
 
             # Pinball loss
             pinball = mean_pinball_loss(y_true, y_pred, alpha=quantile)
-            metrics[f'q{int(quantile*100):02d}_pinball_loss'] = pinball
+            metrics[f"q{int(quantile*100):02d}_pinball_loss"] = pinball
 
             # MAE
             mae = mean_absolute_error(y_true, y_pred)
-            metrics[f'q{int(quantile*100):02d}_mae'] = mae
+            metrics[f"q{int(quantile*100):02d}_mae"] = mae
 
             # RMSE
             rmse = np.sqrt(mean_squared_error(y_true, y_pred))
-            metrics[f'q{int(quantile*100):02d}_rmse'] = rmse
+            metrics[f"q{int(quantile*100):02d}_rmse"] = rmse
 
             # MAPE với threshold để tránh chia cho 0 hoặc giá trị quá nhỏ
             # Chỉ tính MAPE cho các giá trị > threshold (default: 0.1)
             threshold = 0.1
             valid_mask = y_true > threshold
             if valid_mask.sum() > 0:
-                mape = mean_absolute_percentage_error(
-                    y_true[valid_mask], y_pred[valid_mask]
-                )
-                metrics[f'q{int(quantile*100):02d}_mape'] = mape
-                metrics[f'q{int(quantile*100):02d}_mape_valid_samples'] = int(valid_mask.sum())
-                metrics[f'q{int(quantile*100):02d}_mape_total_samples'] = len(y_true)
+                mape = mean_absolute_percentage_error(y_true[valid_mask], y_pred[valid_mask])
+                metrics[f"q{int(quantile*100):02d}_mape"] = mape
+                metrics[f"q{int(quantile*100):02d}_mape_valid_samples"] = int(valid_mask.sum())
+                metrics[f"q{int(quantile*100):02d}_mape_total_samples"] = len(y_true)
             else:
                 # Nếu không có giá trị hợp lệ, set MAPE = None và cảnh báo
-                metrics[f'q{int(quantile*100):02d}_mape'] = None
-                metrics[f'q{int(quantile*100):02d}_mape_warning'] = 'No valid samples for MAPE calculation (all values <= threshold)'
-                logger.warning(f"MAPE không thể tính cho quantile {quantile}: không có giá trị > {threshold}")
+                metrics[f"q{int(quantile*100):02d}_mape"] = None
+                metrics[f"q{int(quantile*100):02d}_mape_warning"] = (
+                    "No valid samples for MAPE calculation (all values <= threshold)"
+                )
+                logger.warning(
+                    f"MAPE không thể tính cho quantile {quantile}: không có giá trị > {threshold}"
+                )
 
     # Coverage
     if len(quantiles) >= 2:
         lower_q = min(quantiles)
         upper_q = max(quantiles)
-        lower_col = f'forecast_q{int(lower_q*100):02d}'
-        upper_col = f'forecast_q{int(upper_q*100):02d}'
+        lower_col = f"forecast_q{int(lower_q*100):02d}"
+        upper_col = f"forecast_q{int(upper_q*100):02d}"
         if lower_col in predictions.columns and upper_col in predictions.columns:
-            coverage = ((y_true >= predictions[lower_col]) &
-                       (y_true <= predictions[upper_col])).mean()
-            metrics[f'coverage_{(upper_q-lower_q)*100:.0f}%'] = coverage
+            coverage = (
+                (y_true >= predictions[lower_col]) & (y_true <= predictions[upper_col])
+            ).mean()
+            metrics[f"coverage_{(upper_q-lower_q)*100:.0f}%"] = coverage
 
     # R2 score (sử dụng median quantile)
-    median_col = f'forecast_q{int(0.50*100):02d}'
+    median_col = f"forecast_q{int(0.50*100):02d}"
     if median_col in predictions.columns:
         r2 = r2_score(y_true, predictions[median_col])
-        metrics['r2_score'] = r2
+        metrics["r2_score"] = r2
 
     return metrics
 
@@ -447,12 +466,17 @@ def main():
     """Main function để chạy prediction pipeline."""
     import argparse
 
-    parser = argparse.ArgumentParser(description='Generate predictions với SHAP values')
-    parser.add_argument('--model-type', type=str, default=None,
-                       help='Model type để predict (lightgbm, catboost, random_forest)')
-    parser.add_argument('--shap', action='store_true', help='Generate SHAP values')
-    parser.add_argument('--sample-size', type=int, default=None,
-                       help='Số lượng samples để tính SHAP')
+    parser = argparse.ArgumentParser(description="Generate predictions với SHAP values")
+    parser.add_argument(
+        "--model-type",
+        type=str,
+        default=None,
+        help="Model type để predict (lightgbm, catboost, random_forest)",
+    )
+    parser.add_argument("--shap", action="store_true", help="Generate SHAP values")
+    parser.add_argument(
+        "--sample-size", type=int, default=None, help="Số lượng samples để tính SHAP"
+    )
     args = parser.parse_args()
 
     logger.info("=" * 70)
@@ -461,14 +485,14 @@ def main():
 
     # Load data
     logger.info("Loading data...")
-    df = pd.read_parquet(OUTPUT_FILES['master_feature_table'])
+    df = pd.read_parquet(OUTPUT_FILES["master_feature_table"])
     config = get_dataset_config()
-    target_col = config['target_column']
-    time_col = config['time_column']
+    target_col = config["target_column"]
+    time_col = config["time_column"]
 
     # Split test set
     time_col_data = pd.to_datetime(df[time_col])
-    cutoff_percentile = TRAINING_CONFIG['train_test_split']['cutoff_percentile']
+    cutoff_percentile = TRAINING_CONFIG["train_test_split"]["cutoff_percentile"]
     cutoff_time = time_col_data.quantile(cutoff_percentile)
 
     test_mask = time_col_data >= cutoff_time
@@ -488,27 +512,29 @@ def main():
         results = forecaster.predict_with_shap(
             df_test, model_type=args.model_type, sample_size=args.sample_size
         )
-        predictions = results['predictions']
-        shap_summary = results['shap_values']
+        predictions = results["predictions"]
+        shap_summary = results["shap_values"]
     else:
         predictions = forecaster.predict(df_test, model_type=args.model_type)
         shap_summary = None
 
     # Evaluate
     logger.info("Evaluating predictions...")
-    metrics = evaluate_predictions(predictions, y_test, TRAINING_CONFIG['quantiles'])
+    metrics = evaluate_predictions(predictions, y_test, TRAINING_CONFIG["quantiles"])
 
     # Save predictions - tối ưu: lưu cả Parquet (nhỏ hơn) và CSV compressed
-    predictions_path_csv = OUTPUT_FILES['predictions_test']
-    predictions_path_parquet = predictions_path_csv.with_suffix('.parquet')
+    predictions_path_csv = OUTPUT_FILES["predictions_test"]
+    predictions_path_parquet = predictions_path_csv.with_suffix(".parquet")
 
     # Lưu Parquet (format tối ưu, nhỏ hơn nhiều)
-    predictions.to_parquet(predictions_path_parquet, index=False, compression='snappy')
-    logger.info(f"Predictions saved to Parquet: {predictions_path_parquet} ({predictions_path_parquet.stat().st_size / 1024 / 1024:.2f} MB)")
+    predictions.to_parquet(predictions_path_parquet, index=False, compression="snappy")
+    logger.info(
+        f"Predictions saved to Parquet: {predictions_path_parquet} ({predictions_path_parquet.stat().st_size / 1024 / 1024:.2f} MB)"
+    )
 
     # Lưu CSV với compression (cho compatibility)
-    csv_gz_path = predictions_path_csv.with_suffix(predictions_path_csv.suffix + '.gz')
-    predictions.to_csv(csv_gz_path, index=False, compression='gzip')
+    csv_gz_path = predictions_path_csv.with_suffix(predictions_path_csv.suffix + ".gz")
+    predictions.to_csv(csv_gz_path, index=False, compression="gzip")
     csv_size = csv_gz_path.stat().st_size / 1024 / 1024
     logger.info(f"Predictions saved to CSV (gzip): {csv_gz_path} ({csv_size:.2f} MB)")
 
@@ -516,31 +542,31 @@ def main():
     # predictions.to_csv(predictions_path_csv, index=False)
 
     # Save metrics
-    metrics_path = OUTPUT_FILES['model_metrics']
-    with open(metrics_path, 'w') as f:
+    metrics_path = OUTPUT_FILES["model_metrics"]
+    with open(metrics_path, "w") as f:
         json.dump(metrics, f, indent=4)
     logger.info(f"Metrics saved to: {metrics_path}")
 
     # Save SHAP values nếu có
     if shap_summary is not None:
-        shap_dir = OUTPUT_FILES['shap_values_dir']
+        shap_dir = OUTPUT_FILES["shap_values_dir"]
         shap_dir.mkdir(parents=True, exist_ok=True)
 
         # Save SHAP values DataFrame
-        shap_df_path = shap_dir / 'shap_values.csv'
-        shap_summary['shap_values'].to_csv(shap_df_path)
+        shap_df_path = shap_dir / "shap_values.csv"
+        shap_summary["shap_values"].to_csv(shap_df_path)
         logger.info(f"SHAP values saved to: {shap_df_path}")
 
         # Save SHAP summary
-        shap_summary_path = shap_dir / 'shap_summary.json'
+        shap_summary_path = shap_dir / "shap_summary.json"
         shap_summary_to_save = {
-            'base_value': float(shap_summary['base_value']),
-            'feature_names': shap_summary['feature_names'],
-            'model_type': shap_summary['model_type'],
-            'quantile': shap_summary['quantile'],
-            'sample_size': len(shap_summary['shap_values']),
+            "base_value": float(shap_summary["base_value"]),
+            "feature_names": shap_summary["feature_names"],
+            "model_type": shap_summary["model_type"],
+            "quantile": shap_summary["quantile"],
+            "sample_size": len(shap_summary["shap_values"]),
         }
-        with open(shap_summary_path, 'w') as f:
+        with open(shap_summary_path, "w") as f:
             json.dump(shap_summary_to_save, f, indent=4)
         logger.info(f"SHAP summary saved to: {shap_summary_path}")
 

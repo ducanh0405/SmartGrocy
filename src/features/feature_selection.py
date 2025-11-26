@@ -20,26 +20,28 @@ import pandas as pd
 try:
     import lightgbm as lgb
     from sklearn.ensemble import RandomForestRegressor
+
     LGB_AVAILABLE = True
 except ImportError:
     LGB_AVAILABLE = False
 
 try:
     from src.config import setup_logging
+
     setup_logging()
     logger = logging.getLogger(__name__)
 except ImportError:
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
     logger = logging.getLogger(__name__)
 
 
 def select_important_features(
     df: pd.DataFrame,
-    target_col: str = 'SALES_VALUE',
+    target_col: str = "SALES_VALUE",
     features: list[str] | None = None,
     importance_threshold: float = 0.01,
-    method: str = 'lightgbm',
-    max_features: int | None = None
+    method: str = "lightgbm",
+    max_features: int | None = None,
 ) -> list[str]:
     """
     Select important features based on model feature importance.
@@ -79,29 +81,32 @@ def select_important_features(
         return []
 
     # Calculate feature importance
-    if method == 'lightgbm' and LGB_AVAILABLE:
+    if method == "lightgbm" and LGB_AVAILABLE:
         importance_scores = _calculate_lgb_importance(X, y)
-    elif method == 'random_forest':
+    elif method == "random_forest":
         importance_scores = _calculate_rf_importance(X, y)
     else:
         logger.warning(f"Method {method} not available, using correlation-based selection")
         importance_scores = _calculate_correlation_importance(X, y)
 
     # Create importance dataframe
-    importance_df = pd.DataFrame({
-        'feature': features,
-        'importance': [importance_scores.get(col, 0) for col in features]
-    }).sort_values('importance', ascending=False)
+    importance_df = pd.DataFrame(
+        {"feature": features, "importance": [importance_scores.get(col, 0) for col in features]}
+    ).sort_values("importance", ascending=False)
 
     # Select features above threshold
-    selected = importance_df[importance_df['importance'] >= importance_threshold]['feature'].tolist()
+    selected = importance_df[importance_df["importance"] >= importance_threshold][
+        "feature"
+    ].tolist()
 
     # Limit to max_features if specified
     if max_features and len(selected) > max_features:
         selected = selected[:max_features]
         logger.info(f"Limited to top {max_features} features")
 
-    logger.info(f"Selected {len(selected)}/{len(features)} features with importance >= {importance_threshold}")
+    logger.info(
+        f"Selected {len(selected)}/{len(features)} features with importance >= {importance_threshold}"
+    )
     if selected:
         logger.info(f"Top 5 features: {selected[:5]}")
 
@@ -112,7 +117,7 @@ def remove_correlated_features(
     df: pd.DataFrame,
     features: list[str],
     correlation_threshold: float = 0.95,
-    method: str = 'spearman'
+    method: str = "spearman",
 ) -> list[str]:
     """
     Remove highly correlated features to reduce multicollinearity.
@@ -126,7 +131,9 @@ def remove_correlated_features(
     Returns:
         List of features after removing highly correlated ones
     """
-    logger.info(f"Removing correlated features (threshold={correlation_threshold}) from {len(features)} features")
+    logger.info(
+        f"Removing correlated features (threshold={correlation_threshold}) from {len(features)} features"
+    )
 
     if len(features) <= 1:
         return features
@@ -137,7 +144,7 @@ def remove_correlated_features(
     # Find highly correlated pairs
     to_remove = set()
     for i in range(len(corr_matrix.columns)):
-        for j in range(i+1, len(corr_matrix.columns)):
+        for j in range(i + 1, len(corr_matrix.columns)):
             if abs(corr_matrix.iloc[i, j]) >= correlation_threshold:
                 col_i = corr_matrix.columns[i]
                 col_j = corr_matrix.columns[j]
@@ -162,12 +169,12 @@ def remove_correlated_features(
 
 def get_optimal_features(
     df: pd.DataFrame,
-    target_col: str = 'SALES_VALUE',
+    target_col: str = "SALES_VALUE",
     importance_threshold: float = 0.005,
     correlation_threshold: float = 0.95,
     max_features: int | None = None,
     save_report: bool = True,
-    output_path: Path | None = None
+    output_path: Path | None = None,
 ) -> dict[str, Any]:
     """
     Complete feature selection pipeline: importance + correlation filtering.
@@ -198,39 +205,41 @@ def get_optimal_features(
         target_col=target_col,
         features=initial_features,
         importance_threshold=importance_threshold,
-        max_features=max_features
+        max_features=max_features,
     )
 
     # Step 2: Remove correlated features
     final_features = remove_correlated_features(
-        df=df,
-        features=important_features,
-        correlation_threshold=correlation_threshold
+        df=df, features=important_features, correlation_threshold=correlation_threshold
     )
 
     # Prepare result
     result = {
-        'selected_features': final_features,
-        'n_selected': len(final_features),
-        'n_initial': len(initial_features),
-        'importance_threshold': importance_threshold,
-        'correlation_threshold': correlation_threshold,
-        'selection_method': 'importance_correlation'
+        "selected_features": final_features,
+        "n_selected": len(final_features),
+        "n_initial": len(initial_features),
+        "importance_threshold": importance_threshold,
+        "correlation_threshold": correlation_threshold,
+        "selection_method": "importance_correlation",
     }
 
-    logger.info(f"Final selection: {len(final_features)} features from {len(initial_features)} initial")
+    logger.info(
+        f"Final selection: {len(final_features)} features from {len(initial_features)} initial"
+    )
 
     # Save report if requested
     if save_report:
         if output_path is None:
             try:
                 from src.config import DATA_DIRS
-                output_path = DATA_DIRS['reports'] / 'feature_selection_report.json'
+
+                output_path = DATA_DIRS["reports"] / "feature_selection_report.json"
             except ImportError:
-                output_path = Path('feature_selection_report.json')
+                output_path = Path("feature_selection_report.json")
 
         import json
-        with open(output_path, 'w', encoding='utf-8') as f:
+
+        with open(output_path, "w", encoding="utf-8") as f:
             json.dump(result, f, indent=2, default=str)
 
         logger.info(f"Feature selection report saved to {output_path}")
@@ -242,10 +251,7 @@ def _calculate_lgb_importance(X: pd.DataFrame, y: pd.Series) -> dict[str, float]
     """Calculate feature importance using LightGBM."""
     try:
         model = lgb.LGBMRegressor(
-            n_estimators=100,
-            learning_rate=0.1,
-            random_state=42,
-            verbosity=-1
+            n_estimators=100, learning_rate=0.1, random_state=42, verbosity=-1
         )
         model.fit(X, y)
 
@@ -267,11 +273,7 @@ def _calculate_rf_importance(X: pd.DataFrame, y: pd.Series) -> dict[str, float]:
     try:
         from sklearn.ensemble import RandomForestRegressor
 
-        model = RandomForestRegressor(
-            n_estimators=50,
-            random_state=42,
-            n_jobs=-1
-        )
+        model = RandomForestRegressor(n_estimators=50, random_state=42, n_jobs=-1)
         model.fit(X, y)
 
         # Normalize importance scores

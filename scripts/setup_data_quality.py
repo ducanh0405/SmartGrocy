@@ -23,6 +23,7 @@ try:
     setup_logging()
 
     import logging
+
     logger = logging.getLogger(__name__)
 
 except ImportError as e:
@@ -38,9 +39,12 @@ def setup_great_expectations():
         import subprocess
 
         # Initialize Great Expectations project
-        result = subprocess.run([
-            'great_expectations', 'init', '--no-view'
-        ], cwd=project_root, capture_output=True, text=True)
+        result = subprocess.run(
+            ["great_expectations", "init", "--no-view"],
+            cwd=project_root,
+            capture_output=True,
+            text=True,
+        )
 
         if result.returncode == 0:
             logger.info("✅ Great Expectations initialized successfully")
@@ -72,7 +76,7 @@ def create_expectation_suites():
         ecommerce_suite.add_expectation(
             ExpectationConfiguration(
                 expectation_type="expect_table_row_count_to_be_between",
-                kwargs={"min_value": 10000, "max_value": 10000000}
+                kwargs={"min_value": 10000, "max_value": 10000000},
             )
         )
 
@@ -80,14 +84,14 @@ def create_expectation_suites():
         ecommerce_suite.add_expectation(
             ExpectationConfiguration(
                 expectation_type="expect_column_values_to_not_be_null",
-                kwargs={"column": "product_id"}
+                kwargs={"column": "product_id"},
             )
         )
 
         ecommerce_suite.add_expectation(
             ExpectationConfiguration(
                 expectation_type="expect_column_values_to_not_be_null",
-                kwargs={"column": "store_id"}
+                kwargs={"column": "store_id"},
             )
         )
 
@@ -95,11 +99,7 @@ def create_expectation_suites():
         ecommerce_suite.add_expectation(
             ExpectationConfiguration(
                 expectation_type="expect_column_values_to_be_between",
-                kwargs={
-                    "column": "sales_quantity",
-                    "min_value": 0,
-                    "max_value": None
-                }
+                kwargs={"column": "sales_quantity", "min_value": 0, "max_value": None},
             )
         )
 
@@ -107,10 +107,7 @@ def create_expectation_suites():
         ecommerce_suite.add_expectation(
             ExpectationConfiguration(
                 expectation_type="expect_column_values_to_be_of_type",
-                kwargs={
-                    "column": "hour_timestamp",
-                    "type_": "datetime64[ns]"
-                }
+                kwargs={"column": "hour_timestamp", "type_": "datetime64[ns]"},
             )
         )
 
@@ -131,8 +128,8 @@ def create_expectation_suites():
                         "column": col,
                         "min_value": 0,
                         "max_value": None,
-                        "mostly": 0.95  # Allow some nulls for early periods
-                    }
+                        "mostly": 0.95,  # Allow some nulls for early periods
+                    },
                 )
             )
 
@@ -142,11 +139,7 @@ def create_expectation_suites():
             timeseries_suite.add_expectation(
                 ExpectationConfiguration(
                     expectation_type="expect_column_values_to_be_between",
-                    kwargs={
-                        "column": col,
-                        "min_value": 0,
-                        "max_value": None
-                    }
+                    kwargs={"column": col, "min_value": 0, "max_value": None},
                 )
             )
 
@@ -163,7 +156,7 @@ def setup_baseline_profiles():
 
     try:
         # Try to load existing data for baseline creation
-        master_path = OUTPUT_FILES['master_feature_table']
+        master_path = OUTPUT_FILES["master_feature_table"]
         if master_path.exists():
             logger.info("Using existing master feature table for baseline...")
 
@@ -173,7 +166,7 @@ def setup_baseline_profiles():
 
             # Create baseline profiles
             quality_monitor = DataQualityMonitor()
-            quality_monitor.create_baseline_profile(df_sample, 'master_feature_table')
+            quality_monitor.create_baseline_profile(df_sample, "master_feature_table")
 
             logger.info("✅ Baseline profiles created from existing data")
         else:
@@ -188,50 +181,50 @@ def create_monitoring_config():
     logger.info("⚙️ Creating monitoring configuration...")
 
     try:
-        config_dir = project_root / 'config'
+        config_dir = project_root / "config"
         config_dir.mkdir(exist_ok=True)
 
         # Data quality monitoring config
         dq_config = {
-            'monitoring_enabled': True,
-            'check_frequency_hours': 24,
-            'alert_thresholds': {
-                'quality_score_min': 70,
-                'drift_significance_level': 0.05,
-                'max_null_percentage': 0.5
+            "monitoring_enabled": True,
+            "check_frequency_hours": 24,
+            "alert_thresholds": {
+                "quality_score_min": 70,
+                "drift_significance_level": 0.05,
+                "max_null_percentage": 0.5,
             },
-            'report_schedule': 'daily',
-            'notification_channels': ['log', 'file']
+            "report_schedule": "daily",
+            "notification_channels": ["log", "file"],
         }
 
-        with open(config_dir / 'data_quality_config.json', 'w') as f:
+        with open(config_dir / "data_quality_config.json", "w") as f:
             json.dump(dq_config, f, indent=2)
 
         # Alerting config template
         alert_config = {
-            'email_alerts': {
-                'enabled': False,
-                'smtp_server': 'smtp.gmail.com',
-                'smtp_port': 587,
-                'sender_email': 'your-email@example.com',
-                'sender_password': 'your-app-password',
-                'recipient_emails': ['team@example.com']
+            "email_alerts": {
+                "enabled": False,
+                "smtp_server": "smtp.gmail.com",
+                "smtp_port": 587,
+                "sender_email": "your-email@example.com",
+                "sender_password": "your-app-password",
+                "recipient_emails": ["team@example.com"],
             },
-            'slack_alerts': {
-                'enabled': False,
-                'bot_token': 'xoxb-your-slack-bot-token',
-                'channel': '#pipeline-alerts'
-            }
+            "slack_alerts": {
+                "enabled": False,
+                "bot_token": "xoxb-your-slack-bot-token",
+                "channel": "#pipeline-alerts",
+            },
         }
 
-        with open(config_dir / 'alert_config_template.json', 'w') as f:
+        with open(config_dir / "alert_config_template.json", "w") as f:
             json.dump(alert_config, f, indent=2)
 
         logger.info("✅ Monitoring configuration created")
 
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("📋 CONFIGURATION SETUP COMPLETE")
-        print("="*60)
+        print("=" * 60)
         print("To enable email alerts:")
         print("1. Copy config/alert_config_template.json to config/alert_config.json")
         print("2. Fill in your email/SMTP credentials")
@@ -241,7 +234,7 @@ def create_monitoring_config():
         print("1. Create a Slack app and bot token")
         print("2. Update slack_alerts configuration")
         print("3. Set slack_alerts.enabled to true in src/config.py")
-        print("="*60)
+        print("=" * 60)
 
     except Exception as e:
         logger.error(f"❌ Monitoring config creation failed: {e}")
@@ -252,7 +245,7 @@ def main():
     logger.info("🚀 Starting data quality monitoring setup...")
 
     print("Setting up comprehensive data quality monitoring...")
-    print("="*60)
+    print("=" * 60)
 
     # Setup Great Expectations
     setup_great_expectations()
@@ -265,9 +258,9 @@ def main():
 
     logger.info("✅ Data quality monitoring setup complete!")
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("🎉 SETUP COMPLETE!")
-    print("="*60)
+    print("=" * 60)
     print("Data quality monitoring is now configured with:")
     print("• Great Expectations for validation")
     print("• Statistical profiling for drift detection")
@@ -278,7 +271,7 @@ def main():
     print("1. Run the modern pipeline: python run_modern_pipeline.py")
     print("2. Monitor quality: python scripts/monitor_data_quality.py")
     print("3. Check reports in reports/quality/")
-    print("="*60)
+    print("=" * 60)
 
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@ Unified Model Training Pipeline (Config-Driven)
 =================================================
 Trains quantile models based on the active dataset config.
 """
+
 import logging
 import sys
 import warnings
@@ -26,6 +27,7 @@ try:
         setup_logging,
         setup_project_path,
     )
+
     setup_project_path()
     setup_logging()
     ensure_directories()
@@ -57,6 +59,7 @@ from src.features.feature_selection import get_optimal_features
 # Note: Logger is initialized above, so it's safe to use here
 try:
     import catboost as cb
+
     CATBOOST_AVAILABLE = True
     logger.debug("CatBoost is available")
 except ImportError as e:
@@ -73,7 +76,8 @@ except ImportError as e:
         )
     cb = None  # Set to None to prevent NameError
 
-warnings.filterwarnings('ignore')
+warnings.filterwarnings("ignore")
+
 
 def load_data(filepath: Path) -> pd.DataFrame:
     """Loads the clean feature table."""
@@ -85,6 +89,7 @@ def load_data(filepath: Path) -> pd.DataFrame:
     except FileNotFoundError:
         logger.error(f"File not found: {filepath}. Run _02_feature_enrichment.py first.")
         sys.exit(1)
+
 
 def get_features_from_config(config: dict) -> tuple[list[str], list[str]]:
     """
@@ -101,42 +106,46 @@ def get_features_from_config(config: dict) -> tuple[list[str], list[str]]:
     def add_workstream_features(ws_name: str):
         if ws_name in ALL_FEATURES_CONFIG:
             for feat in ALL_FEATURES_CONFIG[ws_name]:
-                all_features.append(feat['name'])
-                if feat['type'] == 'cat':
-                    categorical_features.append(feat['name'])
+                all_features.append(feat["name"])
+                if feat["type"] == "cat":
+                    categorical_features.append(feat["name"])
 
     # Base timeseries features (luôn có)
-    add_workstream_features('timeseries_base')
+    add_workstream_features("timeseries_base")
 
     # Các feature tùy chọn dựa trên config toggles
-    if config.get('has_relational', False):
-        add_workstream_features('relational')
-    if config.get('has_intraday_patterns', False):
-        add_workstream_features('intraday_patterns')
-    if config.get('has_behavior', False):
-        add_workstream_features('behavior')
-    if config.get('has_price_promo', False):
-        add_workstream_features('price_promo')
-    if config.get('has_stockout', False):
-        add_workstream_features('stockout')
-    if config.get('has_weather', False):
-        add_workstream_features('weather')
+    if config.get("has_relational", False):
+        add_workstream_features("relational")
+    if config.get("has_intraday_patterns", False):
+        add_workstream_features("intraday_patterns")
+    if config.get("has_behavior", False):
+        add_workstream_features("behavior")
+    if config.get("has_price_promo", False):
+        add_workstream_features("price_promo")
+    if config.get("has_stockout", False):
+        add_workstream_features("stockout")
+    if config.get("has_weather", False):
+        add_workstream_features("weather")
 
-    logger.info(f"Built feature list: {len(all_features)} total, {len(categorical_features)} categorical")
+    logger.info(
+        f"Built feature list: {len(all_features)} total, {len(categorical_features)} categorical"
+    )
     logger.info(f"Categorical features: {categorical_features}")
 
     return all_features, categorical_features
 
 
-def prepare_data(df: pd.DataFrame, config: dict) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series, list[str], list[str]]:
+def prepare_data(
+    df: pd.DataFrame, config: dict
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series, list[str], list[str]]:
     """
     Prepares data for modeling: selects features and performs time-based split.
     """
     logger.info("Preparing data for modeling (config-driven)...")
 
     # 1. Get Target and Time columns from config
-    target_col = config['target_column']
-    time_col_name = config['time_column']
+    target_col = config["target_column"]
+    time_col_name = config["time_column"]
 
     logger.info(f"Target (Y): {target_col}")
     logger.info(f"Time Column: {time_col_name}")
@@ -158,7 +167,9 @@ def prepare_data(df: pd.DataFrame, config: dict) -> tuple[pd.DataFrame, pd.DataF
     categorical_features = [col for col in all_categorical_config if col in df.columns]
 
     logger.info(f"Found {len(all_features)} total features.")
-    logger.info(f"Found {len(categorical_features)} categorical features (from config): {categorical_features}")
+    logger.info(
+        f"Found {len(categorical_features)} categorical features (from config): {categorical_features}"
+    )
 
     X = df_model[all_features]
     y = df_model[target_col]
@@ -168,10 +179,10 @@ def prepare_data(df: pd.DataFrame, config: dict) -> tuple[pd.DataFrame, pd.DataF
 
     # Chuyển đổi categorical features sang 'category' dtype
     for col in categorical_features:
-        X.loc[:, col] = X[col].astype('category')
+        X.loc[:, col] = X[col].astype("category")
         # Fill 'Unknown' cho categorical
         if X[col].isnull().any():
-            X.loc[:, col] = X[col].cat.add_categories(['Unknown']).fillna('Unknown')
+            X.loc[:, col] = X[col].cat.add_categories(["Unknown"]).fillna("Unknown")
 
     logger.info("Final safeguard: Filled NaNs in categorical columns with 'Unknown'.")
 
@@ -180,7 +191,7 @@ def prepare_data(df: pd.DataFrame, config: dict) -> tuple[pd.DataFrame, pd.DataF
     logger.info("PERFORMING TIME-BASED SPLIT (Leak-Safe)")
 
     time_col_data = pd.to_datetime(df_model[time_col_name])
-    cutoff_percentile = TRAINING_CONFIG['train_test_split']['cutoff_percentile']
+    cutoff_percentile = TRAINING_CONFIG["train_test_split"]["cutoff_percentile"]
     cutoff_time = time_col_data.quantile(cutoff_percentile)
 
     logger.info(f"Time cutoff: < {cutoff_time} = TRAIN, >= {cutoff_time} = TEST")
@@ -195,7 +206,9 @@ def prepare_data(df: pd.DataFrame, config: dict) -> tuple[pd.DataFrame, pd.DataF
 
     logger.info(f"Train set: {len(X_train):,} samples (up to {time_col_data[train_mask].max()})")
     logger.info(f"Test set:  {len(X_test):,} samples (from {time_col_data[test_mask].min()})")
-    logger.info(f"Split ratio: {len(X_train)/len(X)*100:.1f}% train / {len(X_test)/len(X)*100:.1f}% test")
+    logger.info(
+        f"Split ratio: {len(X_train)/len(X)*100:.1f}% train / {len(X_test)/len(X)*100:.1f}% test"
+    )
     logger.info("=" * 70)
 
     # FIXED: Perform imputation after split to prevent data leakage
@@ -204,7 +217,9 @@ def prepare_data(df: pd.DataFrame, config: dict) -> tuple[pd.DataFrame, pd.DataF
     return X_train, X_test, y_train, y_test, all_features, categorical_features
 
 
-def impute_after_split(X_train: pd.DataFrame, X_test: pd.DataFrame, categorical_features: list[str]) -> tuple[pd.DataFrame, pd.DataFrame]:
+def impute_after_split(
+    X_train: pd.DataFrame, X_test: pd.DataFrame, categorical_features: list[str]
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Perform imputation after train/test split to prevent data leakage.
 
@@ -227,18 +242,35 @@ def impute_after_split(X_train: pd.DataFrame, X_test: pd.DataFrame, categorical_
 
     # Features safe to fill with 0 (lag, rolling, sales-related)
     safe_to_zero = [
-        col for col in numeric_features
-        if any(keyword in col.lower() for keyword in ['lag', 'rolling', 'sales', 'quantity', 'frequency', 'duration'])
+        col
+        for col in numeric_features
+        if any(
+            keyword in col.lower()
+            for keyword in ["lag", "rolling", "sales", "quantity", "frequency", "duration"]
+        )
     ]
 
     # Weather, price, promotion features - use median (fit on train, transform both)
     sensitive_features = [
-        col for col in numeric_features
-        if any(keyword in col.lower() for keyword in ['temperature', 'precipitation', 'humidity', 'weather', 'price', 'discount'])
+        col
+        for col in numeric_features
+        if any(
+            keyword in col.lower()
+            for keyword in [
+                "temperature",
+                "precipitation",
+                "humidity",
+                "weather",
+                "price",
+                "discount",
+            ]
+        )
     ]
 
     # Other numeric features - use median (fit on train, transform both)
-    other_features = [col for col in numeric_features if col not in safe_to_zero and col not in sensitive_features]
+    other_features = [
+        col for col in numeric_features if col not in safe_to_zero and col not in sensitive_features
+    ]
 
     # 1. Safe features - fill with 0
     if safe_to_zero:
@@ -268,18 +300,30 @@ def impute_after_split(X_train: pd.DataFrame, X_test: pd.DataFrame, categorical_
     for col in categorical_features:
         if col in X_train_imp.columns:
             if X_train_imp[col].isnull().any():
-                if hasattr(X_train_imp[col], 'cat') and 'Unknown' not in X_train_imp[col].cat.categories:
-                    X_train_imp.loc[:, col] = X_train_imp[col].cat.add_categories(['Unknown']).fillna('Unknown')
-                    X_test_imp.loc[:, col] = X_test_imp[col].cat.add_categories(['Unknown']).fillna('Unknown')
+                if (
+                    hasattr(X_train_imp[col], "cat")
+                    and "Unknown" not in X_train_imp[col].cat.categories
+                ):
+                    X_train_imp.loc[:, col] = (
+                        X_train_imp[col].cat.add_categories(["Unknown"]).fillna("Unknown")
+                    )
+                    X_test_imp.loc[:, col] = (
+                        X_test_imp[col].cat.add_categories(["Unknown"]).fillna("Unknown")
+                    )
                 else:
-                    X_train_imp.loc[:, col] = X_train_imp[col].fillna('Unknown')
-                    X_test_imp.loc[:, col] = X_test_imp[col].fillna('Unknown')
+                    X_train_imp.loc[:, col] = X_train_imp[col].fillna("Unknown")
+                    X_test_imp.loc[:, col] = X_test_imp[col].fillna("Unknown")
         if col in X_test_imp.columns:
             if X_test_imp[col].isnull().any():
-                if hasattr(X_test_imp[col], 'cat') and 'Unknown' not in X_test_imp[col].cat.categories:
-                    X_test_imp.loc[:, col] = X_test_imp[col].cat.add_categories(['Unknown']).fillna('Unknown')
+                if (
+                    hasattr(X_test_imp[col], "cat")
+                    and "Unknown" not in X_test_imp[col].cat.categories
+                ):
+                    X_test_imp.loc[:, col] = (
+                        X_test_imp[col].cat.add_categories(["Unknown"]).fillna("Unknown")
+                    )
                 else:
-                    X_test_imp.loc[:, col] = X_test_imp[col].fillna('Unknown')
+                    X_test_imp.loc[:, col] = X_test_imp[col].fillna("Unknown")
 
     logger.info("Filled categorical features with 'Unknown'")
 
@@ -314,9 +358,9 @@ def create_model(model_type: str, quantile: float, categorical_features: list[st
     model_config = MODEL_CONFIGS[model_type]
     params = get_model_config(quantile, model_type=model_type)
 
-    if model_type == 'lightgbm':
+    if model_type == "lightgbm":
         model = lgb.LGBMRegressor(**params)
-    elif model_type == 'catboost':
+    elif model_type == "catboost":
         if not CATBOOST_AVAILABLE or cb is None:
             error_msg = (
                 "CatBoost not available. Install with: "
@@ -327,17 +371,17 @@ def create_model(model_type: str, quantile: float, categorical_features: list[st
             raise ImportError(error_msg)
         try:
             # CatBoost cũng cần wrapper
-            model = cb.CatBoostRegressor(**{k: v for k, v in params.items() if k != 'quantile'})
+            model = cb.CatBoostRegressor(**{k: v for k, v in params.items() if k != "quantile"})
         except Exception as e:
             logger.error(f"Failed to create CatBoost model: {e}")
             raise RuntimeError(f"CatBoost model creation failed: {e}") from e
-    elif model_type == 'random_forest':
+    elif model_type == "random_forest":
         # Random Forest cần wrapper
-        model = RandomForestRegressor(**{k: v for k, v in params.items() if k != 'quantile'})
+        model = RandomForestRegressor(**{k: v for k, v in params.items() if k != "quantile"})
     else:
         raise ValueError(f"Unknown model type: {model_type}")
 
-    return model, model_config['quantile_support']
+    return model, model_config["quantile_support"]
 
 
 def train_quantile_model(
@@ -345,7 +389,7 @@ def train_quantile_model(
     quantile: float,
     X_train: pd.DataFrame,
     y_train: pd.Series,
-    categorical_features: list[str]
+    categorical_features: list[str],
 ) -> Any:
     """
     Train một quantile model.
@@ -368,31 +412,25 @@ def train_quantile_model(
         X_encoded = X.copy()
         for col in cat_features:
             if col in X_encoded.columns:
-                if X_encoded[col].dtype.name == 'category':
+                if X_encoded[col].dtype.name == "category":
                     X_encoded[col] = X_encoded[col].cat.codes
-                elif X_encoded[col].dtype.name == 'object':
+                elif X_encoded[col].dtype.name == "object":
                     X_encoded[col] = pd.Categorical(X_encoded[col]).codes
         return X_encoded
 
     # Train model dựa trên model type
-    if model_type == 'lightgbm' and quantile_support:
+    if model_type == "lightgbm" and quantile_support:
         # LightGBM hỗ trợ quantile regression trực tiếp
-        model.fit(
-            X_train,
-            y_train,
-            categorical_feature=categorical_features
-        )
-    elif model_type == 'catboost':
+        model.fit(X_train, y_train, categorical_feature=categorical_features)
+    elif model_type == "catboost":
         if not CATBOOST_AVAILABLE or cb is None:
             raise ImportError("CatBoost not available")
         try:
             # CatBoost hỗ trợ categorical features trực tiếp
-            cat_indices = [i for i, col in enumerate(X_train.columns) if col in categorical_features]
-            model.fit(
-                X_train, y_train,
-                cat_features=cat_indices,
-                verbose=False
-            )
+            cat_indices = [
+                i for i, col in enumerate(X_train.columns) if col in categorical_features
+            ]
+            model.fit(X_train, y_train, cat_features=cat_indices, verbose=False)
         except Exception as e:
             logger.error(f"CatBoost training failed: {e}")
             raise RuntimeError(f"CatBoost training error: {e}") from e
@@ -408,7 +446,7 @@ def train_quantile_models(
     X_train: pd.DataFrame,
     y_train: pd.Series,
     categorical_features: list[str],
-    model_types: list[str] | None = None
+    model_types: list[str] | None = None,
 ) -> dict[str, dict[float, Any]]:
     """
     Trains multiple models for each quantile.
@@ -422,15 +460,17 @@ def train_quantile_models(
     Returns:
         Dict of {model_type: {quantile: model}}
     """
-    quantiles = TRAINING_CONFIG['quantiles']
-    model_types = model_types or TRAINING_CONFIG.get('model_types', ['lightgbm'])
+    quantiles = TRAINING_CONFIG["quantiles"]
+    model_types = model_types or TRAINING_CONFIG.get("model_types", ["lightgbm"])
 
     # Validate: CHỈ TRAIN 5 QUANTILES (Q05, Q25, Q50, Q75, Q95)
     if len(quantiles) != 5:
         logger.warning(f"Expected 5 quantiles, but found {len(quantiles)}: {quantiles}")
     expected_quantiles = [0.05, 0.25, 0.50, 0.75, 0.95]
     if set(quantiles) != set(expected_quantiles):
-        logger.warning(f"Quantiles do not match expected values. Expected: {expected_quantiles}, Got: {quantiles}")
+        logger.warning(
+            f"Quantiles do not match expected values. Expected: {expected_quantiles}, Got: {quantiles}"
+        )
 
     logger.info("=" * 70)
     logger.info("TRAINING MODELS - 5 QUANTILES ONLY")
@@ -441,7 +481,7 @@ def train_quantile_models(
     # Filter available models
     available_models = []
     for model_type in model_types:
-        if model_type == 'catboost' and not CATBOOST_AVAILABLE:
+        if model_type == "catboost" and not CATBOOST_AVAILABLE:
             logger.warning(f"Skipping {model_type}: not available")
             continue
         if model_type not in MODEL_CONFIGS:
@@ -465,7 +505,9 @@ def train_quantile_models(
         model_start_time = time.time()
 
         for quantile in quantiles:
-            logger.info(f"Training {model_type} Q{int(quantile*100):02d} model (alpha={quantile})...")
+            logger.info(
+                f"Training {model_type} Q{int(quantile*100):02d} model (alpha={quantile})..."
+            )
 
             try:
                 model = train_quantile_model(
@@ -487,20 +529,24 @@ def train_quantile_models(
 
     return all_models
 
-def encode_categorical_for_prediction(X: pd.DataFrame, categorical_features: list[str]) -> pd.DataFrame:
+
+def encode_categorical_for_prediction(
+    X: pd.DataFrame, categorical_features: list[str]
+) -> pd.DataFrame:
     """Encode categorical features thành numeric codes cho prediction."""
     X_encoded = X.copy()
     for col in categorical_features:
         if col in X_encoded.columns:
-            if X_encoded[col].dtype.name == 'category':
+            if X_encoded[col].dtype.name == "category":
                 X_encoded[col] = X_encoded[col].cat.codes
-            elif X_encoded[col].dtype.name == 'object':
+            elif X_encoded[col].dtype.name == "object":
                 X_encoded[col] = pd.Categorical(X_encoded[col]).codes
     return X_encoded
 
 
-def predict_with_model(model: Any, model_type: str, X: pd.DataFrame,
-                      categorical_features: list[str]) -> np.ndarray:
+def predict_with_model(
+    model: Any, model_type: str, X: pd.DataFrame, categorical_features: list[str]
+) -> np.ndarray:
     """
     Predict với model, xử lý categorical features cho từng model type.
 
@@ -513,9 +559,9 @@ def predict_with_model(model: Any, model_type: str, X: pd.DataFrame,
     Returns:
         Predictions
     """
-    if model_type == 'lightgbm':
+    if model_type == "lightgbm":
         return model.predict(X)
-    elif model_type == 'catboost':
+    elif model_type == "catboost":
         if not CATBOOST_AVAILABLE or cb is None:
             raise ImportError("CatBoost not available")
         try:
@@ -533,7 +579,7 @@ def evaluate_quantile_models(
     all_models: dict[str, dict[float, Any]],
     X_test: pd.DataFrame,
     y_test: pd.Series,
-    categorical_features: list[str]
+    categorical_features: list[str],
 ) -> dict[str, dict[str, float]]:
     """
     Evaluates all models using pinball loss.
@@ -553,7 +599,7 @@ def evaluate_quantile_models(
     logger.info("EVALUATING QUANTILE MODELS")
     logger.info("=" * 70)
 
-    quantiles = TRAINING_CONFIG['quantiles']
+    quantiles = TRAINING_CONFIG["quantiles"]
     all_metrics = {}
 
     for model_type, models in all_models.items():
@@ -572,17 +618,19 @@ def evaluate_quantile_models(
 
             # Pinball loss
             pinball = mean_pinball_loss(y_test, y_pred, alpha=quantile)
-            metrics[f'q{int(quantile*100):02d}_pinball_loss'] = pinball
+            metrics[f"q{int(quantile*100):02d}_pinball_loss"] = pinball
 
             # MAE
             mae = mean_absolute_error(y_test, y_pred)
-            metrics[f'q{int(quantile*100):02d}_mae'] = mae
+            metrics[f"q{int(quantile*100):02d}_mae"] = mae
 
             # RMSE
             rmse = np.sqrt(mean_squared_error(y_test, y_pred))
-            metrics[f'q{int(quantile*100):02d}_rmse'] = rmse
+            metrics[f"q{int(quantile*100):02d}_rmse"] = rmse
 
-            logger.info(f"  Q{int(quantile*100):02d} - Pinball: {pinball:.4f}, MAE: {mae:.4f}, RMSE: {rmse:.4f}")
+            logger.info(
+                f"  Q{int(quantile*100):02d} - Pinball: {pinball:.4f}, MAE: {mae:.4f}, RMSE: {rmse:.4f}"
+            )
 
         # Coverage
         if len(predictions) >= 2:
@@ -592,24 +640,25 @@ def evaluate_quantile_models(
                 lower_pred = predictions[lower_q]
                 upper_pred = predictions[upper_q]
                 coverage = ((y_test >= lower_pred) & (y_test <= upper_pred)).mean()
-                metrics[f'coverage_{(upper_q-lower_q)*100:.0f}%'] = coverage
+                metrics[f"coverage_{(upper_q-lower_q)*100:.0f}%"] = coverage
                 logger.info(f"  Coverage ({ (upper_q-lower_q)*100:.0f}%): {coverage*100:.2f}%")
 
         # R2 score (median quantile)
         median_q = 0.50
         if median_q in predictions:
             r2 = r2_score(y_test, predictions[median_q])
-            metrics['r2_score'] = r2
+            metrics["r2_score"] = r2
             logger.info(f"  R2 Score: {r2:.4f}")
 
         all_metrics[model_type] = metrics
 
     return all_metrics
 
+
 def save_artifacts(
     all_models: dict[str, dict[float, Any]],
     features_config: dict,
-    all_metrics: dict[str, dict[str, float]]
+    all_metrics: dict[str, dict[str, float]],
 ) -> None:
     """Saves models, features, and metrics."""
     logger.info("Saving model artifacts...")
@@ -618,31 +667,28 @@ def save_artifacts(
     for model_type, models in all_models.items():
         for quantile, model in models.items():
             model_filename = f"{model_type}_q{int(quantile*100):02d}_forecaster.joblib"
-            model_path = OUTPUT_FILES['models_dir'] / model_filename
+            model_path = OUTPUT_FILES["models_dir"] / model_filename
             joblib.dump(model, model_path)
             logger.info(f"  {model_filename} saved to: {model_path}")
 
     # Save feature config
-    features_path = OUTPUT_FILES['model_features']
-    with open(features_path, 'w') as f:
+    features_path = OUTPUT_FILES["model_features"]
+    with open(features_path, "w") as f:
         json.dump(features_config, f, indent=4)
     logger.info(f"  Feature config saved to: {features_path}")
 
     # Save metrics
-    metrics_path = OUTPUT_FILES['model_metrics']
-    with open(metrics_path, 'w') as f:
+    metrics_path = OUTPUT_FILES["model_metrics"]
+    with open(metrics_path, "w") as f:
         json.dump(all_metrics, f, indent=4)
     logger.info(f"  Metrics saved to: {metrics_path}")
+
 
 def main(args=None) -> None:
     """Orchestrates the entire training pipeline."""
     # Create default args if none provided (for orchestrator compatibility)
     if args is None:
-        args = argparse.Namespace(
-            tune=False,
-            model_types=None,
-            skip_feature_selection=False
-        )
+        args = argparse.Namespace(tune=False, model_types=None, skip_feature_selection=False)
 
     logger.info("=" * 70)
     logger.info("STARTING MODEL TRAINING PIPELINE (Config-Driven)")
@@ -655,7 +701,7 @@ def main(args=None) -> None:
 
     # 2. Load Data
     logger.info("STEP 1: LOAD DATA")
-    df = load_data(OUTPUT_FILES['master_feature_table'])
+    df = load_data(OUTPUT_FILES["master_feature_table"])
 
     # 3. Prepare Data
     logger.info("STEP 2: PREPARE DATA & TIME-BASED SPLIT")
@@ -672,7 +718,7 @@ def main(args=None) -> None:
     else:
         # Reconstruct full dataframe for feature selection
         df_for_selection = pd.concat([X_train, X_test], axis=0)
-        target_col = config['target_column']
+        target_col = config["target_column"]
         df_for_selection[target_col] = pd.concat([y_train, y_test], axis=0)
 
         # Run feature selection
@@ -680,16 +726,18 @@ def main(args=None) -> None:
             df=df_for_selection,
             target_col=target_col,
             importance_threshold=0.005,  # Keep features with >0.5% importance
-            correlation_threshold=0.95,   # Remove highly correlated features
+            correlation_threshold=0.95,  # Remove highly correlated features
             max_features=None,  # No hard limit
-            save_report=True
+            save_report=True,
         )
 
-        selected_features = selection_result['selected_features']
+        selected_features = selection_result["selected_features"]
         logger.info("Feature Selection Results:")
         logger.info(f"  Initial features: {selection_result['n_initial']}")
         logger.info(f"  Selected features: {selection_result['n_selected']}")
-        logger.info(f"  Reduction: {(1 - selection_result['n_selected']/selection_result['n_initial'])*100:.1f}%")
+        logger.info(
+            f"  Reduction: {(1 - selection_result['n_selected']/selection_result['n_initial'])*100:.1f}%"
+        )
 
         # Update X_train and X_test with selected features
         X_train = X_train[selected_features]
@@ -703,7 +751,9 @@ def main(args=None) -> None:
 
     # 4. Train Models
     logger.info("STEP 3: TRAIN QUANTILE MODELS")
-    model_types = args.model_types if args.model_types else TRAINING_CONFIG.get('model_types', ['lightgbm'])
+    model_types = (
+        args.model_types if args.model_types else TRAINING_CONFIG.get("model_types", ["lightgbm"])
+    )
 
     if args.tune:
         logger.warning("Hyperparameter tuning not implemented. Using standard params.")
@@ -721,25 +771,27 @@ def main(args=None) -> None:
     # Convert numpy types to Python types for JSON serialization
     categorical_categories = {}
     for col in cat_features:
-        if col in X_train.columns and hasattr(X_train[col], 'cat'):
+        if col in X_train.columns and hasattr(X_train[col], "cat"):
             categories = list(X_train[col].cat.categories)
             # Convert numpy types to Python types
-            categorical_categories[col] = [str(x) if hasattr(x, 'item') else x for x in categories]
+            categorical_categories[col] = [str(x) if hasattr(x, "item") else x for x in categories]
         else:
             # Fallback for non-categorical features that were marked as categorical
             unique_values = X_train[col].unique() if col in X_train.columns else []
             # Convert numpy types to Python types
-            categorical_categories[col] = [str(x) if hasattr(x, 'item') else x for x in unique_values]
+            categorical_categories[col] = [
+                str(x) if hasattr(x, "item") else x for x in unique_values
+            ]
 
     # Save selected features (or all features if selection was skipped)
     final_features_config = {
         "all_features": selected_features if not args.skip_feature_selection else features,
         "categorical_features": cat_features,
         "categorical_categories": categorical_categories,
-        "quantiles": TRAINING_CONFIG['quantiles'],
+        "quantiles": TRAINING_CONFIG["quantiles"],
         "model_types": list(all_models.keys()),
-        "dataset_trained_on": config['name'],
-        "feature_selection_enabled": not args.skip_feature_selection
+        "dataset_trained_on": config["name"],
+        "feature_selection_enabled": not args.skip_feature_selection,
     }
     save_artifacts(all_models, final_features_config, all_metrics)
 
@@ -748,13 +800,24 @@ def main(args=None) -> None:
     logger.info(f"Artifacts saved to: {OUTPUT_FILES['models_dir']}")
     logger.info("=" * 70)
 
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Train quantile regression models')
-    parser.add_argument('--tune', action='store_true', help='Enable hyperparameter tuning (nếu được implement)')
-    parser.add_argument('--model-types', nargs='+', type=str, default=None,
-                       help='Model types to train (lightgbm, catboost, random_forest)')
-    parser.add_argument('--skip-feature-selection', action='store_true',
-                       help='Skip automatic feature selection and use all features')
+    parser = argparse.ArgumentParser(description="Train quantile regression models")
+    parser.add_argument(
+        "--tune", action="store_true", help="Enable hyperparameter tuning (nếu được implement)"
+    )
+    parser.add_argument(
+        "--model-types",
+        nargs="+",
+        type=str,
+        default=None,
+        help="Model types to train (lightgbm, catboost, random_forest)",
+    )
+    parser.add_argument(
+        "--skip-feature-selection",
+        action="store_true",
+        help="Skip automatic feature selection and use all features",
+    )
     args = parser.parse_args()
 
     main(args)

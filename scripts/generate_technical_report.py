@@ -19,6 +19,7 @@ import os
 from datetime import datetime
 from pathlib import Path
 
+
 def get_forecast_metrics():
     """Extract forecast performance metrics"""
     try:
@@ -26,24 +27,21 @@ def get_forecast_metrics():
         metrics_file = Path("reports/validation_report.json")
         if metrics_file.exists():
             import json
+
             with open(metrics_file) as f:
                 data = json.load(f)
                 return {
-                    'r2_score': data.get('forecast_r2', 85.68),
-                    'coverage': data.get('forecast_coverage', 87.03),
-                    'mae': data.get('forecast_mae', 0.3837),
-                    'rmse': data.get('forecast_rmse', 0.6527)
+                    "r2_score": data.get("forecast_r2", 85.68),
+                    "coverage": data.get("forecast_coverage", 87.03),
+                    "mae": data.get("forecast_mae", 0.3837),
+                    "rmse": data.get("forecast_rmse", 0.6527),
                 }
     except:
         pass
 
     # Default values if metrics not available
-    return {
-        'r2_score': 85.68,
-        'coverage': 87.03,
-        'mae': 0.3837,
-        'rmse': 0.6527
-    }
+    return {"r2_score": 85.68, "coverage": 87.03, "mae": 0.3837, "rmse": 0.6527}
+
 
 def get_sample_outputs():
     """Extract sample outputs from report files"""
@@ -51,30 +49,38 @@ def get_sample_outputs():
 
     # Module 1: Forecast sample
     try:
-        df_pred = pd.read_parquet('reports/predictions_test_set.parquet')
-        samples['forecast'] = df_pred.head(2).to_csv(index=False)
+        df_pred = pd.read_parquet("reports/predictions_test_set.parquet")
+        samples["forecast"] = df_pred.head(2).to_csv(index=False)
     except:
-        samples['forecast'] = "product_id,store_id,hour_timestamp,sales_quantity,forecast_q50\n0,25,2024-06-08,0.7,0.573288"
+        samples["forecast"] = (
+            "product_id,store_id,hour_timestamp,sales_quantity,forecast_q50\n0,25,2024-06-08,0.7,0.573288"
+        )
 
     # Module 2: Inventory sample
     try:
-        df_inv = pd.read_csv('reports/inventory_recommendations.csv')
-        samples['inventory'] = df_inv.head(1).to_csv(index=False)
+        df_inv = pd.read_csv("reports/inventory_recommendations.csv")
+        samples["inventory"] = df_inv.head(1).to_csv(index=False)
     except:
-        samples['inventory'] = "product_id,store_id,reorder_point,safety_stock,current_inventory,stockout_risk\n0.0,25.0,4.986592,1.09105,1.0,0.0000000326"
+        samples["inventory"] = (
+            "product_id,store_id,reorder_point,safety_stock,current_inventory,stockout_risk\n0.0,25.0,4.986592,1.09105,1.0,0.0000000326"
+        )
 
     # Module 3: Pricing sample
     try:
-        df_price = pd.read_csv('reports/pricing_recommendations.csv')
-        samples['pricing'] = df_price.head(2).to_csv(index=False)
+        df_price = pd.read_csv("reports/pricing_recommendations.csv")
+        samples["pricing"] = df_price.head(2).to_csv(index=False)
     except:
-        samples['pricing'] = "current_price,recommended_price,discount_pct,action\n21.854305,20.498783,0.062025,small_discount\n47.782144,43.935300,0.080508,small_discount"
+        samples["pricing"] = (
+            "current_price,recommended_price,discount_pct,action\n21.854305,20.498783,0.062025,small_discount\n47.782144,43.935300,0.080508,small_discount"
+        )
 
     # Module 4: LLM sample
     try:
-        df_llm = pd.read_csv('reports/llm_insights.csv')
+        df_llm = pd.read_csv("reports/llm_insights.csv")
         sample = df_llm.iloc[0]
-        samples['llm'] = f"""
+        samples[
+            "llm"
+        ] = f"""
 Product ID: {sample['product_id']}
 Stockout Risk: {sample['stockout_risk_pct']:.1f}%
 Overstock Risk: {sample['overstock_risk_pct']:.1f}%
@@ -82,7 +88,9 @@ Method: {sample['method']}
 Insight Preview: {sample['insight_text'][:200]}...
 """
     except:
-        samples['llm'] = """
+        samples[
+            "llm"
+        ] = """
 Product ID: 23
 Stockout Risk: 11.5%
 Overstock Risk: 5.0%
@@ -91,6 +99,7 @@ Insight Preview: ## 📊 EXECUTIVE SUMMARY\n\nDemand forecast for 23 is **0.6 un
 """
 
     return samples
+
 
 def generate_report():
     """Generate the complete technical report"""
@@ -480,12 +489,13 @@ SmartGrocy represents a production-ready, end-to-end solution for E-Grocery dema
 """
 
     # Write to file
-    with open('TECHNICAL_REPORT.md', 'w', encoding='utf-8') as f:
+    with open("TECHNICAL_REPORT.md", "w", encoding="utf-8") as f:
         f.write(report_content)
 
     print(f"[SUCCESS] Technical report generated successfully: TECHNICAL_REPORT.md")
     print(f"[METRICS] R²={metrics['r2_score']}%, Coverage={metrics['coverage']}%")
     print("[OUTPUTS] Sample outputs extracted from report files")
+
 
 if __name__ == "__main__":
     generate_report()

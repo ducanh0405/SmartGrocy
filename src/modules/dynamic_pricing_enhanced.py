@@ -20,6 +20,7 @@ from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class PricingMetrics:
     """Enhanced pricing metrics."""
@@ -54,20 +55,20 @@ class PricingMetrics:
     def to_dict(self) -> dict:
         """Convert to dict for Module 4."""
         return {
-            'current_price': self.current_price,
-            'recommended_price': self.recommended_price,
-            'price_change': self.price_change,
-            'price_change_pct': self.price_change_pct,
-            'discount_pct': self.discount_pct,
-            'unit_cost': self.unit_cost,
-            'current_margin': self.current_margin,
-            'new_margin': self.new_margin,
-            'action': self.action,
-            'reasoning': self.reasoning,
-            'priority': self.priority,
-            'expected_revenue_impact': self.expected_revenue_change,
-            'expected_profit_impact': self.expected_profit_change,
-            'competitive_position': self.competitive_position
+            "current_price": self.current_price,
+            "recommended_price": self.recommended_price,
+            "price_change": self.price_change,
+            "price_change_pct": self.price_change_pct,
+            "discount_pct": self.discount_pct,
+            "unit_cost": self.unit_cost,
+            "current_margin": self.current_margin,
+            "new_margin": self.new_margin,
+            "action": self.action,
+            "reasoning": self.reasoning,
+            "priority": self.priority,
+            "expected_revenue_impact": self.expected_revenue_change,
+            "expected_profit_impact": self.expected_profit_change,
+            "competitive_position": self.competitive_position,
         }
 
 
@@ -75,12 +76,7 @@ class EnhancedPricingEngine:
     """Enhanced pricing engine with impact analysis."""
 
     # Price elasticity estimates
-    ELASTICITY_MAP = {
-        'fresh_produce': -1.5,
-        'dairy': -1.2,
-        'packaged': -0.8,
-        'default': -1.0
-    }
+    ELASTICITY_MAP = {"fresh_produce": -1.5, "dairy": -1.2, "packaged": -0.8, "default": -1.0}
 
     def __init__(self, **config):
         self.config = config
@@ -92,14 +88,12 @@ class EnhancedPricingEngine:
         current_demand: float,
         inventory_ratio: float,
         demand_ratio: float,
-        category: str = 'default'
+        category: str = "default",
     ) -> PricingMetrics:
         """Calculate pricing with comprehensive impact analysis."""
 
         # Calculate discount using existing logic
-        discount_pct, action = self._calculate_discount_logic(
-            inventory_ratio, demand_ratio
-        )
+        discount_pct, action = self._calculate_discount_logic(inventory_ratio, demand_ratio)
 
         # New price
         recommended_price = current_price * (1 - discount_pct)
@@ -172,7 +166,7 @@ class EnhancedPricingEngine:
             expected_demand_impact_pct=expected_demand_impact_pct,
             expected_revenue_change=revenue_change,
             expected_profit_change=profit_change,
-            competitive_position=competitive
+            competitive_position=competitive,
         )
 
     def _calculate_discount_logic(self, inv_ratio: float, dem_ratio: float) -> tuple:
@@ -224,7 +218,7 @@ if __name__ == "__main__":
         current_demand=100,
         inventory_ratio=2.3,
         demand_ratio=0.75,
-        category='fresh_produce'
+        category="fresh_produce",
     )
 
     print("\nEnhanced Pricing Metrics:")

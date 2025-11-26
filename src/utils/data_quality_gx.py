@@ -35,6 +35,7 @@ import pandas as pd
 
 try:
     import great_expectations as gx
+
     GX_AVAILABLE = True
 except ImportError as e:
     GX_AVAILABLE = False
@@ -103,7 +104,7 @@ class DataQualityValidator:
         suite_name: str = "master_feature_table_suite",
         asset_name: str = "validation_data",
         fail_on_error: bool = False,
-        return_detailed: bool = False
+        return_detailed: bool = False,
     ) -> dict[str, Any]:
         """
         Validate dataframe against expectation suite.
@@ -128,11 +129,11 @@ class DataQualityValidator:
         if not self.is_available():
             logger.warning("GX validation skipped (not available)")
             return {
-                'success': True,  # Don't block pipeline
-                'statistics': {},
-                'message': 'GX not available - validation skipped',
-                'timestamp': datetime.now().isoformat(),
-                'data_shape': df.shape
+                "success": True,  # Don't block pipeline
+                "statistics": {},
+                "message": "GX not available - validation skipped",
+                "timestamp": datetime.now().isoformat(),
+                "data_shape": df.shape,
             }
 
         logger.info(f"Running GX validation on {asset_name}: {df.shape}")
@@ -152,14 +153,14 @@ class DataQualityValidator:
                 "runtime_parameters": {"batch_data": df},
                 "batch_identifiers": {
                     "default_identifier_name": f"{asset_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-                }
+                },
             }
 
             # Run checkpoint
             result = self.context.run_checkpoint(
                 checkpoint_name="master_feature_checkpoint",
                 batch_request=batch_request,
-                expectation_suite_name=suite_name
+                expectation_suite_name=suite_name,
             )
 
             # Parse results
@@ -178,30 +179,38 @@ class DataQualityValidator:
                     results = validation_result.get("results", [])
                     for exp_result in results:
                         if not exp_result.get("success", True):
-                            failed_expectations.append({
-                                "expectation": exp_result.get("expectation_config", {}).get("expectation_type"),
-                                "column": exp_result.get("expectation_config", {}).get("kwargs", {}).get("column"),
-                                "result": exp_result.get("result", {})
-                            })
+                            failed_expectations.append(
+                                {
+                                    "expectation": exp_result.get("expectation_config", {}).get(
+                                        "expectation_type"
+                                    ),
+                                    "column": exp_result.get("expectation_config", {})
+                                    .get("kwargs", {})
+                                    .get("column"),
+                                    "result": exp_result.get("result", {}),
+                                }
+                            )
 
             # Log results
-            success_rate = statistics.get('success_percent', 0)
+            success_rate = statistics.get("success_percent", 0)
             if success:
                 logger.info(f"✅ Validation passed: {success_rate:.1f}% success rate")
             else:
                 logger.warning(f"⚠️ Validation failed: {success_rate:.1f}% success rate")
-                logger.warning(f"   {statistics.get('unsuccessful_expectations', 0)} expectations failed")
+                logger.warning(
+                    f"   {statistics.get('unsuccessful_expectations', 0)} expectations failed"
+                )
 
             # Prepare return dict
             validation_result = {
-                'success': success,
-                'statistics': statistics,
-                'timestamp': datetime.now().isoformat(),
-                'data_shape': df.shape
+                "success": success,
+                "statistics": statistics,
+                "timestamp": datetime.now().isoformat(),
+                "data_shape": df.shape,
             }
 
             if return_detailed:
-                validation_result['failed_expectations'] = failed_expectations
+                validation_result["failed_expectations"] = failed_expectations
 
             # Raise exception if requested
             if fail_on_error and not success:
@@ -217,10 +226,10 @@ class DataQualityValidator:
             if fail_on_error:
                 raise ImportError(error_msg) from e
             return {
-                'success': False,
-                'error': error_msg,
-                'timestamp': datetime.now().isoformat(),
-                'data_shape': df.shape
+                "success": False,
+                "error": error_msg,
+                "timestamp": datetime.now().isoformat(),
+                "data_shape": df.shape,
             }
         except Exception as e:
             error_msg = f"GX validation error: {e}"
@@ -228,10 +237,10 @@ class DataQualityValidator:
             if fail_on_error:
                 raise RuntimeError(error_msg) from e
             return {
-                'success': False,
-                'error': error_msg,
-                'timestamp': datetime.now().isoformat(),
-                'data_shape': df.shape
+                "success": False,
+                "error": error_msg,
+                "timestamp": datetime.now().isoformat(),
+                "data_shape": df.shape,
             }
 
     def get_quality_score(self, validation_result: dict[str, Any]) -> float:
@@ -244,17 +253,15 @@ class DataQualityValidator:
         Returns:
             Quality score (0-100)
         """
-        if not validation_result.get('success'):
-            stats = validation_result.get('statistics', {})
-            return stats.get('success_percent', 0)
+        if not validation_result.get("success"):
+            stats = validation_result.get("statistics", {})
+            return stats.get("success_percent", 0)
         return 100.0
 
 
 # Convenience function for quick validation
 def validate_dataframe(
-    df: pd.DataFrame,
-    asset_name: str = "data",
-    fail_on_error: bool = False
+    df: pd.DataFrame, asset_name: str = "data", fail_on_error: bool = False
 ) -> dict[str, Any]:
     """
     Quick validation function for pipeline use.
@@ -273,15 +280,12 @@ def validate_dataframe(
         >>>     print("Data quality check passed!")
     """
     validator = DataQualityValidator()
-    return validator.validate(
-        df,
-        asset_name=asset_name,
-        fail_on_error=fail_on_error
-    )
+    return validator.validate(df, asset_name=asset_name, fail_on_error=fail_on_error)
 
 
 # Module-level validator instance for reuse
 _default_validator = None
+
 
 def get_validator() -> DataQualityValidator:
     """Get or create default validator instance"""
@@ -300,10 +304,7 @@ if __name__ == "__main__":
 
     if validator.is_available():
         # Create test dataframe
-        test_df = pd.DataFrame({
-            'sales_lag_1': [1, 2, 3, 4, 5],
-            'week_of_year': [1, 2, 3, 4, 5]
-        })
+        test_df = pd.DataFrame({"sales_lag_1": [1, 2, 3, 4, 5], "week_of_year": [1, 2, 3, 4, 5]})
 
         print("\nRunning test validation...")
         result = validate_dataframe(test_df, "test_data", fail_on_error=False)

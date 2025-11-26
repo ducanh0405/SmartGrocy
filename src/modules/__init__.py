@@ -29,10 +29,7 @@ try:
 except ImportError as e:
     # Gracefully handle import errors (e.g., missing dependencies)
     import logging
+
     logging.getLogger(__name__).warning(f"Some modules could not be imported: {e}")
 
-__all__ = [
-    "InventoryOptimizer",
-    "DynamicPricingEngine",
-    "LLMInsightGenerator"
-]
+__all__ = ["InventoryOptimizer", "DynamicPricingEngine", "LLMInsightGenerator"]
